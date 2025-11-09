@@ -52,7 +52,7 @@
     main {
       flex: 1 1 auto;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
       gap: clamp(1.5rem, 3vw, 2.5rem);
       padding: 0 clamp(1rem, 4vw, 3rem) 3rem;
     }
@@ -90,6 +90,7 @@
     input[type="text"],
     input[type="number"],
     input[type="url"],
+    input[type="file"],
     textarea,
     select {
       width: 100%;
@@ -167,6 +168,18 @@
       color: #ff496a;
     }
 
+    button.flat {
+      border-radius: 12px;
+      background: rgba(108, 76, 255, 0.08);
+      color: var(--accent);
+      padding: 0.65rem 1rem;
+      transition: background 0.2s ease;
+    }
+
+    button.flat:hover {
+      background: rgba(108, 76, 255, 0.16);
+    }
+
     button:hover {
       transform: translateY(-1px);
       box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
@@ -181,74 +194,77 @@
     .flex-row .field {
       flex: 1 1 160px;
     }
-    .dialogue-section {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
 
-    .dialogue-header p {
-      margin: 0.25rem 0 0;
+    .stage-indicator {
       font-size: 0.9rem;
-      color: rgba(31, 31, 31, 0.7);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(31, 31, 31, 0.6);
     }
 
-    .dialogue-header h3 {
-      margin: 0;
-      font-size: 1.05rem;
+    body.dark .stage-indicator {
+      color: rgba(245, 245, 247, 0.6);
     }
 
-    body.dark .dialogue-header p {
-      color: rgba(245, 245, 247, 0.7);
-    }
-
-    .dialogue-list {
+    .stage-content {
       display: flex;
       flex-direction: column;
       gap: 1rem;
+      padding: 1rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.7);
     }
 
-    .dialogue-row {
-      border: 1px solid rgba(31, 31, 31, 0.12);
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.85);
-      padding: 1rem;
+    body.dark .stage-content {
+      background: rgba(44, 44, 46, 0.7);
+    }
+
+    .stage-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .stage-actions button {
+      flex: 1 1 180px;
+    }
+
+    .timeline {
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
+      max-height: 280px;
+      overflow-y: auto;
+      padding-right: 0.5rem;
     }
 
-    body.dark .dialogue-row {
-      border-color: rgba(245, 245, 247, 0.16);
-      background: rgba(44, 44, 46, 0.75);
-    }
-
-    .dialogue-row .flex-row {
+    .timeline-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.65);
       gap: 0.75rem;
     }
 
-    .dialogue-row textarea {
-      min-height: 90px;
+    body.dark .timeline-item {
+      background: rgba(44, 44, 46, 0.65);
     }
 
-    .dialogue-row-actions {
-      display: flex;
-      justify-content: flex-end;
+    .timeline-item strong {
+      display: block;
+      font-size: 0.95rem;
     }
 
-    .dialogue-row-actions .danger {
-      padding-inline: 1rem;
-    }
-
-    pre#quest-preview {
-      background: rgba(0, 0, 0, 0.75);
-      color: #f5f5f5;
-      border-radius: 12px;
-      padding: 1rem;
-      max-height: 280px;
-      overflow: auto;
+    .timeline-item span {
       font-size: 0.85rem;
-      line-height: 1.5;
+      color: rgba(31, 31, 31, 0.65);
+    }
+
+    body.dark .timeline-item span {
+      color: rgba(245, 245, 247, 0.65);
     }
 
     .log {
@@ -256,6 +272,17 @@
       line-height: 1.4;
       white-space: pre-wrap;
       min-height: 2.5rem;
+    }
+
+    pre#quest-preview {
+      background: rgba(0, 0, 0, 0.75);
+      color: #f5f5f5;
+      border-radius: 12px;
+      padding: 1rem;
+      max-height: 320px;
+      overflow: auto;
+      font-size: 0.85rem;
+      line-height: 1.5;
     }
 
     footer {
@@ -284,7 +311,7 @@
 <body>
   <header>
     <h1>DramaBirthQuest Web Uploader</h1>
-    <p>3DAdventureのクエストをウェブ上で設計し、Swiftアプリのクエスト作成画面と同じ構成でシナリオを組み立てられます。<br>
+    <p>3DAdventureのクエストをウェブ上で設計し、Swiftアプリのクエスト作成画面と同じステップでシナリオを構築できます。<br>
       MapKitで配置したロケーション情報と合わせてアップロードまたはJSONとしてエクスポートしましょう。</p>
   </header>
 
@@ -304,42 +331,52 @@
       <div class="flex-row">
         <div class="field">
           <label for="latitude">緯度 (Latitude)</label>
-          <input id="latitude" type="number" step="any" placeholder="35.6809591">
+          <input id="latitude" type="number" step="any" placeholder="35.680959">
         </div>
         <div class="field">
           <label for="longitude">経度 (Longitude)</label>
-          <input id="longitude" type="number" step="any" placeholder="139.7673068">
+          <input id="longitude" type="number" step="any" placeholder="139.767307">
         </div>
         <div class="field">
           <label for="regionRadius">表示範囲 (m)</label>
           <input id="regionRadius" type="number" min="100" value="500">
         </div>
       </div>
+      <fieldset>
+        <legend>配置モード</legend>
+        <div class="flex-row">
+          <label><input type="radio" name="location-mode" value="everywhere" checked> すべての場所</label>
+          <label><input type="radio" name="location-mode" value="current"> 現在地を使用</label>
+          <label><input type="radio" name="location-mode" value="specific"> マップで指定</label>
+        </div>
+      </fieldset>
+      <label for="location-name">場所名称 (任意)</label>
+      <input id="location-name" type="text" placeholder="例: 渋谷駅ハチ公前">
+      <label for="location-detail">場所の補足 (任意)</label>
+      <input id="location-detail" type="text" placeholder="例: 待ち合わせ広場付近">
       <p class="log" id="map-log">マップが未初期化です。JWTを入力して「Mapを初期化」を押してください。</p>
     </section>
 
     <section class="card" aria-labelledby="quest-settings">
-      <h2 id="quest-settings">クエスト設定</h2>
-      <label for="quest-title">タイトル</label>
-      <input id="quest-title" type="text" placeholder="例: 失われた記憶のかけら">
+      <h2 id="quest-settings">クエスト作成ウィザード</h2>
+      <div class="stage-indicator" id="stage-indicator">STEP 1 / タイトルを決める</div>
+      <div id="stage-container" class="stage-content" role="group" aria-live="polite"></div>
 
-      <div class="dialogue-section">
-        <div class="dialogue-header">
-          <h3>セリフ &amp; キャラクター配置</h3>
-          <p>Swiftアプリの「キャラ配置」UIと同じく、キャラクターを左・中央・右のいずれかに配置し、セリフを設定します。</p>
-        </div>
-        <div id="dialogue-list" class="dialogue-list" role="list"></div>
-        <div class="button-row">
-          <button class="secondary" type="button" id="add-dialogue">セリフを追加</button>
-          <button class="secondary" type="button" id="clear-form">シナリオをクリア</button>
-        </div>
+      <div>
+        <h3 style="margin: 1rem 0 0.5rem; font-size: 1.05rem;">フロー (アプリ下部タイムラインと同等)</h3>
+        <div id="timeline" class="timeline" role="list"></div>
       </div>
 
       <label for="quest-preview">JSONプレビュー</label>
       <pre id="quest-preview" aria-live="polite">{
   "title": "",
-"script": [],
+  "bgType": "",
+  "bgURL": "",
+  "dialogLines": [],
+  "flowOps": [],
+  "assets": {},
   "location": {
+    "mode": "everywhere",
     "latitude": null,
     "longitude": null,
     "radius": 500
@@ -366,196 +403,1221 @@
   </main>
 
   <footer>
-    3DAdventure Quest Builder &copy; 2025 — Swift版のロジックに合わせたJSONスキーマを採用しています。
+    3DAdventure Quest Builder &copy; 2025 — Swift版のロジックに合わせたステージ進行とJSONスキーマを採用しています。
   </footer>
 
   <script>
-    const state = {
-      map: null,
-      marker: null,
-      selectedCoordinate: null,
-      dialogueCounter: 0
-    };
-
+    const stageContainer = document.getElementById('stage-container');
+    const stageIndicator = document.getElementById('stage-indicator');
+    const timelineContainer = document.getElementById('timeline');
+    const questPreview = document.getElementById('quest-preview');
     const mapLog = document.getElementById('map-log');
     const uploadLog = document.getElementById('upload-log');
-    const questPreview = document.getElementById('quest-preview');
 
     const latitudeInput = document.getElementById('latitude');
     const longitudeInput = document.getElementById('longitude');
     const radiusInput = document.getElementById('regionRadius');
+    const locationModeInputs = Array.from(document.querySelectorAll('input[name="location-mode"]'));
+    const locationNameInput = document.getElementById('location-name');
+    const locationDetailInput = document.getElementById('location-detail');
 
-    const questFields = {
-title: document.getElementById('quest-title')
+    const state = {
+      map: null,
+      marker: null,
+      selectedCoordinate: null,
+      stage: 'askTitle',
+      title: '',
+      authorUID: 'guest',
+      background: { type: '', youtubeId: '', assetKey: null, assetURL: '' },
+      flowOps: [],
+      assets: {},
+      cover: { assetKey: null, url: '' },
+      allowFinishOptions: false,
+      textDraft: { type: 'text', narration: false, speaker: 'center', text: '' },
+      charDraft: {},
+      pendingBackgroundChange: null,
+      tempSlot: null,
+      locationChoice: { mode: 'everywhere', name: '', detail: '' }
     };
-    const dialogueList = document.getElementById('dialogue-list');
-    const addDialogueButton = document.getElementById('add-dialogue');
 
-    function createDialogueRow(data = {}) {
-      state.dialogueCounter += 1;
-      const row = document.createElement('div');
-      row.className = 'dialogue-row';
-      row.setAttribute('role', 'listitem');
+    function setStage(next) {
+      state.stage = next;
+      renderStage();
+    }
 
-      const charId = `dialogue-character-${state.dialogueCounter}`;
-      const posId = `dialogue-position-${state.dialogueCounter}`;
-      const lineId = `dialogue-line-${state.dialogueCounter}`;
+    function generateStageLabel(stage) {
+      switch (stage) {
+        case 'askTitle':
+          return 'STEP 1 / タイトルを決める';
+        case 'askBackground':
+          return 'STEP 2 / 初期背景を選ぶ';
+        case 'menu':
+          return 'STEP 3 / 次のアクションを選択';
+        case 'addCharacter':
+          return 'キャラクターを登場させる';
+        case 'removeCharacter':
+          return 'キャラクターを退場させる';
+        case 'changeCharMotionTarget':
+          return '動きを変える対象を選ぶ';
+        case 'chooseCharAnim':
+          return 'キャラの動きを決める';
+        case 'chooseTextType':
+          return '文章の種類を選ぶ';
+        case 'chooseTextSpeaker':
+          return '話者を決める';
+        case 'addText':
+          return 'セリフ / ナレーションを入力';
+        case 'addWait':
+          return '何もしない時間を追加';
+        case 'changeBG':
+          return '背景を変更する';
+        case 'chooseTransition':
+          return '背景トランジションを選ぶ';
+        case 'chooseCover':
+          return 'トップ画像を設定';
+        case 'askThumbnail':
+          return '仕上げと確認';
+        default:
+          return 'クエスト作成';
+      }
+    }
 
-      const flex = document.createElement('div');
-      flex.className = 'flex-row';
-
-      const charField = document.createElement('div');
-      charField.className = 'field';
-      const charLabel = document.createElement('label');
-      charLabel.setAttribute('for', charId);
-      charLabel.textContent = 'キャラクター名';
-      const charInput = document.createElement('input');
-      charInput.type = 'text';
-      charInput.id = charId;
-      charInput.placeholder = '例: リナ';
-      charInput.classList.add('dialogue-character');
-      charField.appendChild(charLabel);
-      charField.appendChild(charInput);
-
-      const posField = document.createElement('div');
-      posField.className = 'field';
-      const posLabel = document.createElement('label');
-      posLabel.setAttribute('for', posId);
-      posLabel.textContent = '配置';
-      const posSelect = document.createElement('select');
-      posSelect.id = posId;
-      posSelect.classList.add('dialogue-position');
-      [
-        { value: 'left', label: '左' },
-        { value: 'center', label: '中央' },
-        { value: 'right', label: '右' }
-      ].forEach(option => {
-        const opt = document.createElement('option');
-        opt.value = option.value;
-        opt.textContent = option.label;
-        posSelect.appendChild(opt);
-      });
-      posField.appendChild(posLabel);
-      posField.appendChild(posSelect);
-
-      flex.appendChild(charField);
-      flex.appendChild(posField);
-
-      const lineLabel = document.createElement('label');
-      lineLabel.setAttribute('for', lineId);
-      lineLabel.textContent = 'セリフ';
-      const lineTextarea = document.createElement('textarea');
-      lineTextarea.id = lineId;
-      lineTextarea.placeholder = 'キャラクターのセリフを入力';
-      lineTextarea.classList.add('dialogue-line');
-
-      const actions = document.createElement('div');
-      actions.className = 'dialogue-row-actions';
-      const removeButton = document.createElement('button');
-      removeButton.type = 'button';
-      removeButton.classList.add('danger');
-      removeButton.textContent = 'このセリフを削除';
-      actions.appendChild(removeButton);
-
-      row.appendChild(flex);
-      row.appendChild(lineLabel);
-      row.appendChild(lineTextarea);
-      row.appendChild(actions);
-      dialogueList.appendChild(row);
-
-      const applyData = () => {
-        charInput.value = data.character || '';
-        posSelect.value = data.position || 'center';
-        lineTextarea.value = data.dialogue || '';
-      };
-      applyData();
-
-      const handleChange = () => {
-        if (state.marker && state.map && typeof mapkit !== 'undefined') {
-          state.marker.title = questFields.title.value || 'クエストポイント';
-        }
-        renderQuestPreview();
-      };
-
-      charInput.addEventListener('input', handleChange);
-      posSelect.addEventListener('change', handleChange);
-      lineTextarea.addEventListener('input', handleChange);
-
-      removeButton.addEventListener('click', () => {
-        if (dialogueList.childElementCount <= 1) {
-          charInput.value = '';
-          posSelect.value = 'center';
-          lineTextarea.value = '';
-        } else {
-          dialogueList.removeChild(row);
-        }
-        renderQuestPreview();
-      });
-
+    function renderStage() {
+      stageIndicator.textContent = generateStageLabel(state.stage);
+      stageContainer.innerHTML = '';
+      switch (state.stage) {
+        case 'askTitle':
+          renderAskTitle();
+          break;
+        case 'askBackground':
+          renderAskBackground();
+          break;
+        case 'menu':
+          renderMenu();
+          break;
+        case 'addCharacter':
+          renderAddCharacter();
+          break;
+        case 'removeCharacter':
+          renderRemoveCharacter();
+          break;
+        case 'changeCharMotionTarget':
+          renderChangeCharMotionTarget();
+          break;
+        case 'chooseCharAnim':
+          renderChooseCharAnim();
+          break;
+        case 'chooseTextType':
+          renderChooseTextType();
+          break;
+        case 'chooseTextSpeaker':
+          renderChooseTextSpeaker();
+          break;
+        case 'addText':
+          renderAddText();
+          break;
+        case 'addWait':
+          renderAddWait();
+          break;
+        case 'changeBG':
+          renderChangeBackground();
+          break;
+        case 'chooseTransition':
+          renderChooseTransition();
+          break;
+        case 'chooseCover':
+          renderChooseCover();
+          break;
+        case 'askThumbnail':
+          renderAskThumbnail();
+          break;
+        default:
+          stageContainer.textContent = '未定義のステージです。';
+      }
+      renderTimeline();
       renderQuestPreview();
-      return row;
     }
 
-    function readDialogueRows(includeIncomplete = true) {
-      const rows = Array.from(dialogueList.querySelectorAll('.dialogue-row')).map(row => {
-        const character = row.querySelector('.dialogue-character')?.value.trim() || '';
-        const position = row.querySelector('.dialogue-position')?.value || 'center';
-        const dialogue = row.querySelector('.dialogue-line')?.value.trim() || '';
-        return { character, position, dialogue };
+    function createElement(tag, options = {}) {
+      const el = document.createElement(tag);
+      if (options.className) el.className = options.className;
+      if (options.textContent !== undefined) el.textContent = options.textContent;
+      if (options.innerHTML !== undefined) el.innerHTML = options.innerHTML;
+      if (options.type) el.type = options.type;
+      if (options.value !== undefined) el.value = options.value;
+      if (options.placeholder !== undefined) el.placeholder = options.placeholder;
+      if (options.min !== undefined) el.min = options.min;
+      if (options.max !== undefined) el.max = options.max;
+      if (options.step !== undefined) el.step = options.step;
+      if (options.checked !== undefined) el.checked = options.checked;
+      if (options.disabled !== undefined) el.disabled = options.disabled;
+      if (options.htmlFor) el.htmlFor = options.htmlFor;
+      if (options.multiple !== undefined) el.multiple = options.multiple;
+      if (options.accept !== undefined) el.accept = options.accept;
+      if (options.id) el.id = options.id;
+      return el;
+    }
+
+    function renderAskTitle() {
+      const titleLabel = createElement('label', { htmlFor: 'quest-title-input', textContent: 'クエストタイトル' });
+      const titleInput = createElement('input', { type: 'text', id: 'quest-title-input', value: state.title, placeholder: '例: 失われた記憶のかけら' });
+      titleInput.addEventListener('input', () => {
+        state.title = titleInput.value;
+        renderQuestPreview();
+        renderStage();
       });
-      return includeIncomplete ?
-        rows.filter(entry => entry.character || entry.dialogue) :
-        rows.filter(entry => entry.character && entry.dialogue);
+
+      const authorLabel = createElement('label', { htmlFor: 'quest-author-input', textContent: '作者UID (未ログインの場合は guest)' });
+      const authorInput = createElement('input', { type: 'text', id: 'quest-author-input', value: state.authorUID, placeholder: 'guest' });
+      authorInput.addEventListener('input', () => {
+        state.authorUID = authorInput.value.trim() || 'guest';
+        renderQuestPreview();
+      });
+
+      const actions = createElement('div', { className: 'stage-actions' });
+      const nextButton = createElement('button', { className: 'primary', type: 'button', textContent: '次へ（背景を決める）' });
+      nextButton.disabled = !state.title.trim();
+      nextButton.addEventListener('click', () => setStage('askBackground'));
+      actions.appendChild(nextButton);
+
+      stageContainer.append(titleLabel, titleInput, authorLabel, authorInput, actions);
+    }
+    function renderAskBackground() {
+      const info = createElement('p', { textContent: 'アプリと同様に、最初に表示する背景を選択します。YouTube動画か画像のどちらかを指定してください。' });
+      const typeLabel = createElement('label', { textContent: '背景タイプ' });
+      const typeSelect = createElement('select');
+      ['', 'youtube', 'image'].forEach(value => {
+        const option = createElement('option', { value, textContent: value === '' ? '選択してください' : (value === 'youtube' ? 'YouTube' : '画像') });
+        if (state.background.type === value) option.selected = true;
+        typeSelect.appendChild(option);
+      });
+
+      const youtubeLabel = createElement('label', { htmlFor: 'bg-youtube-input', textContent: 'YouTubeリンクまたはID' });
+      const youtubeInput = createElement('input', { type: 'text', id: 'bg-youtube-input', value: state.background.youtubeId, placeholder: 'https://youtu.be/...' });
+      youtubeLabel.style.display = youtubeInput.style.display = state.background.type === 'youtube' ? 'block' : 'none';
+
+      const imageLabel = createElement('label', { htmlFor: 'bg-image-input', textContent: '背景画像 (アップロード)' });
+      const imageInput = createElement('input', { type: 'file', id: 'bg-image-input', accept: 'image/*' });
+      imageLabel.style.display = imageInput.style.display = state.background.type === 'image' ? 'block' : 'none';
+
+      const imageURLLabel = createElement('label', { htmlFor: 'bg-image-url', textContent: '背景画像URL (アップロードしない場合)' });
+      const imageURLInput = createElement('input', { type: 'url', id: 'bg-image-url', value: state.background.assetURL, placeholder: 'https://example.com/background.png' });
+      imageURLLabel.style.display = imageURLInput.style.display = state.background.type === 'image' ? 'block' : 'none';
+
+      typeSelect.addEventListener('change', () => {
+        state.background.type = typeSelect.value;
+        if (typeSelect.value !== 'youtube') state.background.youtubeId = '';
+        if (typeSelect.value !== 'image') {
+          state.background.assetKey = null;
+          state.background.assetURL = '';
+        }
+        renderStage();
+      });
+
+      youtubeInput.addEventListener('input', () => {
+        state.background.youtubeId = youtubeInput.value.trim();
+        renderQuestPreview();
+      });
+
+      imageURLInput.addEventListener('input', () => {
+        state.background.assetURL = imageURLInput.value.trim();
+        renderQuestPreview();
+      });
+
+      imageInput.addEventListener('change', async () => {
+        const file = imageInput.files?.[0];
+        if (!file) return;
+        const dataUrl = await fileToDataURL(file);
+        const key = storeAsset(dataUrl, 'background', file.name);
+        state.background.assetKey = key;
+        state.background.assetURL = '';
+        renderQuestPreview();
+      });
+
+      const actions = createElement('div', { className: 'stage-actions' });
+      const backButton = createElement('button', { className: 'secondary', type: 'button', textContent: '戻る' });
+      backButton.addEventListener('click', () => setStage('askTitle'));
+      const nextButton = createElement('button', { className: 'primary', type: 'button', textContent: '次へ（メニューへ）' });
+      nextButton.disabled = !isBackgroundReady(state.background);
+      nextButton.addEventListener('click', () => setStage('menu'));
+
+      actions.append(backButton, nextButton);
+
+      stageContainer.append(info, typeLabel, typeSelect, youtubeLabel, youtubeInput, imageLabel, imageInput, imageURLLabel, imageURLInput, actions);
     }
 
-    function resetDialogues() {
-      dialogueList.innerHTML = '';
-      state.dialogueCounter = 0;
-      createDialogueRow();
+    function isBackgroundReady(bg) {
+      if (bg.type === 'youtube') {
+        return !!extractYouTubeID(bg.youtubeId);
+      }
+      if (bg.type === 'image') {
+        return !!bg.assetKey || !!bg.assetURL;
+      }
+      return false;
     }
 
-    addDialogueButton.addEventListener('click', () => {
-      const row = createDialogueRow();
-      const input = row.querySelector('.dialogue-character');
-      if (input) {
-        input.focus();
+    function renderMenu() {
+      state.allowFinishOptions = state.flowOps.length > 0;
+      const info = createElement('p', { textContent: 'Swiftアプリのメニューと同じ選択肢です。追加したい操作を選んでください。' });
+      const actions = createElement('div', { className: 'stage-actions' });
+
+      const addCharButton = createElement('button', { className: 'flat', type: 'button', textContent: 'キャラクターを登場させる' });
+      addCharButton.addEventListener('click', () => setStage('addCharacter'));
+      actions.appendChild(addCharButton);
+
+      const activeSlots = getActiveSlots();
+      if (activeSlots.size > 0) {
+        const removeButton = createElement('button', { className: 'flat', type: 'button', textContent: 'キャラクターを消す' });
+        removeButton.addEventListener('click', () => setStage('removeCharacter'));
+        actions.appendChild(removeButton);
+
+        const changeMotionButton = createElement('button', { className: 'flat', type: 'button', textContent: 'キャラクターの動きを変える / 向きを変える' });
+        changeMotionButton.addEventListener('click', () => setStage('changeCharMotionTarget'));
+        actions.appendChild(changeMotionButton);
+      }
+
+      const textButton = createElement('button', { className: 'flat', type: 'button', textContent: '文章を入れる' });
+      textButton.addEventListener('click', () => setStage('chooseTextType'));
+      actions.appendChild(textButton);
+
+      const waitButton = createElement('button', { className: 'flat', type: 'button', textContent: '少し待つ（ウェイト）' });
+      waitButton.addEventListener('click', () => setStage('addWait'));
+      actions.appendChild(waitButton);
+
+      const bgButton = createElement('button', { className: 'flat', type: 'button', textContent: '背景を変える' });
+      bgButton.addEventListener('click', () => {
+        state.pendingBackgroundChange = { type: '', youtubeId: '', assetKey: null, assetURL: '' };
+        setStage('changeBG');
+      });
+      actions.appendChild(bgButton);
+
+      const coverButton = createElement('button', { className: 'flat', type: 'button', textContent: 'トップ画像（サムネ）を選ぶ' });
+      coverButton.addEventListener('click', () => setStage('chooseCover'));
+      actions.appendChild(coverButton);
+
+      if (state.allowFinishOptions) {
+        const finishButton = createElement('button', { className: 'primary', type: 'button', textContent: 'これで終わり（仕上げへ）' });
+        finishButton.addEventListener('click', () => setStage('askThumbnail'));
+        actions.appendChild(finishButton);
+      }
+
+      const backButton = createElement('button', { className: 'secondary', type: 'button', textContent: '背景をやり直す' });
+      backButton.addEventListener('click', () => setStage('askBackground'));
+      actions.appendChild(backButton);
+
+      stageContainer.append(info, actions);
+    }
+    function renderAddCharacter() {
+      const info = createElement('p', { textContent: '登場させたいキャラクターの画像と配置、動きを設定します。' });
+
+      const sourceLabel = createElement('label', { textContent: '画像の指定方法' });
+      const sourceSelect = createElement('select');
+      ['upload', 'url'].forEach(value => {
+        const option = createElement('option', { value, textContent: value === 'upload' ? '画像をアップロード' : '画像URLを入力' });
+        if (!state.charDraft.source && value === 'upload') {
+          state.charDraft.source = 'upload';
+        }
+        if (state.charDraft.source === value) option.selected = true;
+        sourceSelect.appendChild(option);
+      });
+
+      const fileLabel = createElement('label', { htmlFor: 'char-image-file', textContent: 'キャラクター画像' });
+      const fileInput = createElement('input', { type: 'file', id: 'char-image-file', accept: 'image/*' });
+      fileLabel.style.display = sourceSelect.value === 'upload' ? 'block' : 'none';
+      fileInput.style.display = sourceSelect.value === 'upload' ? 'block' : 'none';
+
+      const urlLabel = createElement('label', { htmlFor: 'char-image-url', textContent: '画像URL' });
+      const urlInput = createElement('input', { type: 'url', id: 'char-image-url', placeholder: 'https://example.com/character.png', value: state.charDraft.assetURL || '' });
+      urlLabel.style.display = urlInput.style.display = sourceSelect.value === 'url' ? 'block' : 'none';
+
+      const positionLabel = createElement('label', { textContent: '配置位置' });
+      const positionSelect = createElement('select');
+      const occupied = getActiveSlots();
+      [['left', '左'], ['center', '真ん中'], ['right', '右']].forEach(([value, label]) => {
+        const option = createElement('option', { value, textContent: label });
+        option.disabled = occupied.has(value);
+        if (!option.disabled && !state.charDraft.slot) {
+          state.charDraft.slot = value;
+          option.selected = true;
+        }
+        if (state.charDraft.slot === value) option.selected = true;
+        positionSelect.appendChild(option);
+      });
+
+      const scaleLabel = createElement('label', { htmlFor: 'char-scale', textContent: '表示倍率 (0.5〜2.0)' });
+      const scaleInput = createElement('input', { type: 'number', id: 'char-scale', min: 0.5, max: 2, step: 0.1, value: state.charDraft.scale || 1.0 });
+
+      const animLabel = createElement('label', { textContent: '初期モーション' });
+      const animSelect = createElement('select');
+      [['none', '動かない'], ['upDown', '浮いている'], ['shake', '左右に揺れる'], ['hop', 'ジャンプしている']].forEach(([value, label]) => {
+        const option = createElement('option', { value, textContent: label });
+        if ((state.charDraft.anim || 'none') === value) option.selected = true;
+        animSelect.appendChild(option);
+      });
+
+      sourceSelect.addEventListener('change', () => {
+        state.charDraft.source = sourceSelect.value;
+        renderStage();
+      });
+
+      urlInput.addEventListener('input', () => {
+        state.charDraft.assetURL = urlInput.value.trim();
+      });
+
+      positionSelect.addEventListener('change', () => {
+        state.charDraft.slot = positionSelect.value;
+      });
+
+      scaleInput.addEventListener('input', () => {
+        const val = parseFloat(scaleInput.value);
+        if (Number.isFinite(val)) {
+          state.charDraft.scale = val;
+        }
+      });
+
+      animSelect.addEventListener('change', () => {
+        state.charDraft.anim = animSelect.value;
+      });
+
+      const actions = createElement('div', { className: 'stage-actions' });
+      const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+      cancelButton.addEventListener('click', () => {
+        state.charDraft = {};
+        setStage('menu');
+      });
+
+      const addButton = createElement('button', { className: 'primary', type: 'button', textContent: 'キャラクターを追加' });
+      addButton.addEventListener('click', async () => {
+        try {
+          if (!state.charDraft.slot) {
+            alert('配置できる位置がありません。');
+            return;
+          }
+          let assetKey = null;
+          let assetURL = '';
+          if ((state.charDraft.source || 'upload') === 'upload') {
+            const file = fileInput.files?.[0];
+            if (!file) {
+              alert('キャラクター画像を選択してください。');
+              return;
+            }
+            const dataUrl = await fileToDataURL(file);
+            assetKey = storeAsset(dataUrl, 'character', file.name);
+          } else {
+            if (!urlInput.value.trim()) {
+              alert('画像URLを入力してください。');
+              return;
+            }
+            assetURL = urlInput.value.trim();
+          }
+
+          const op = {
+            kind: 'charAdd',
+            slot: state.charDraft.slot,
+            anim: state.charDraft.anim || 'none',
+            scale: Number(state.charDraft.scale || 1.0),
+            assetKey,
+            assetURL
+          };
+          appendFlowOp(op);
+          state.charDraft = {};
+          setStage('menu');
+        } catch (error) {
+          console.error(error);
+          alert('画像の読み込みに失敗しました。');
+        }
+      });
+
+      actions.append(cancelButton, addButton);
+
+      stageContainer.append(info, sourceLabel, sourceSelect, fileLabel, fileInput, urlLabel, urlInput, positionLabel, positionSelect, scaleLabel, scaleInput, animLabel, animSelect, actions);
+    }
+
+    function renderRemoveCharacter() {
+      const info = createElement('p', { textContent: '退場させたいキャラクターの位置を選択してください。' });
+      const slots = Array.from(getActiveSlots());
+      if (slots.length === 0) {
+        const warn = createElement('p', { textContent: '現在舞台にキャラクターはいません。', className: 'log' });
+        const backButton = createElement('button', { className: 'secondary', type: 'button', textContent: '戻る' });
+        backButton.addEventListener('click', () => setStage('menu'));
+        stageContainer.append(info, warn, backButton);
+        return;
+      }
+
+      const actions = createElement('div', { className: 'stage-actions' });
+      slots.forEach(slot => {
+        const btn = createElement('button', { className: 'flat', type: 'button', textContent: slotLabel(slot) });
+        btn.addEventListener('click', () => {
+          appendFlowOp({ kind: 'charRemove', slot });
+          setStage('menu');
+        });
+        actions.appendChild(btn);
+      });
+
+      const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+      cancelButton.addEventListener('click', () => setStage('menu'));
+      actions.appendChild(cancelButton);
+
+      stageContainer.append(info, actions);
+    }
+
+    function renderChangeCharMotionTarget() {
+      const info = createElement('p', { textContent: '動きを変えたいキャラクターを選択してください。' });
+      const slots = Array.from(getActiveSlots());
+      if (slots.length === 0) {
+        const warn = createElement('p', { textContent: '現在舞台にキャラクターはいません。', className: 'log' });
+        const backButton = createElement('button', { className: 'secondary', type: 'button', textContent: '戻る' });
+        backButton.addEventListener('click', () => setStage('menu'));
+        stageContainer.append(info, warn, backButton);
+        return;
+      }
+
+      const actions = createElement('div', { className: 'stage-actions' });
+      slots.forEach(slot => {
+        const btn = createElement('button', { className: 'flat', type: 'button', textContent: slotLabel(slot) });
+        btn.addEventListener('click', () => {
+          state.tempSlot = slot;
+          setStage('chooseCharAnim');
+        });
+        actions.appendChild(btn);
+      });
+
+      const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+      cancelButton.addEventListener('click', () => {
+        state.tempSlot = null;
+        setStage('menu');
+      });
+      actions.appendChild(cancelButton);
+
+      stageContainer.append(info, actions);
+    }
+
+    function renderChooseCharAnim() {
+      if (!state.tempSlot) {
+        setStage('menu');
+        return;
+      }
+      const info = createElement('p', { textContent: `選択中: ${slotLabel(state.tempSlot)}。新しい動き、または向きを選んでください。` });
+      const actions = createElement('div', { className: 'stage-actions' });
+      [['none', '動かない'], ['upDown', '浮いている'], ['shake', '左右に揺れる'], ['hop', 'ジャンプしている']].forEach(([value, label]) => {
+        const btn = createElement('button', { className: 'flat', type: 'button', textContent: label });
+        btn.addEventListener('click', () => {
+          appendFlowOp({ kind: 'charAnim', slot: state.tempSlot, anim: value });
+          state.tempSlot = null;
+          setStage('menu');
+        });
+        actions.appendChild(btn);
+      });
+
+      const flipButton = createElement('button', { className: 'flat', type: 'button', textContent: '向きを変える' });
+      flipButton.addEventListener('click', () => {
+        appendFlowOp({ kind: 'charFlip', slot: state.tempSlot });
+        state.tempSlot = null;
+        setStage('menu');
+      });
+      actions.appendChild(flipButton);
+
+      const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+      cancelButton.addEventListener('click', () => {
+        state.tempSlot = null;
+        setStage('menu');
+      });
+      actions.appendChild(cancelButton);
+
+      stageContainer.append(info, actions);
+    }
+    function renderChooseTextType() {
+      const info = createElement('p', { textContent: '文章はナレーションか会話かを選びます。' });
+      const actions = createElement('div', { className: 'stage-actions' });
+      const narrationButton = createElement('button', { className: 'flat', type: 'button', textContent: 'ナレーション' });
+      narrationButton.addEventListener('click', () => {
+        state.textDraft = { type: 'text', narration: true, speaker: null, text: '' };
+        setStage('addText');
+      });
+      const dialogButton = createElement('button', { className: 'flat', type: 'button', textContent: 'キャラのセリフ' });
+      dialogButton.addEventListener('click', () => {
+        state.textDraft = { type: 'text', narration: false, speaker: 'center', text: '' };
+        setStage('chooseTextSpeaker');
+      });
+      const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+      cancelButton.addEventListener('click', () => setStage('menu'));
+      actions.append(narrationButton, dialogButton, cancelButton);
+      stageContainer.append(info, actions);
+    }
+
+    function renderChooseTextSpeaker() {
+      const slots = Array.from(getActiveSlots());
+      const info = createElement('p', { textContent: '話すキャラクターの位置を選びます。' });
+      if (slots.length === 0) {
+        const warn = createElement('p', { textContent: '舞台にキャラクターがいないため、真ん中で話す扱いになります。', className: 'log' });
+        const confirm = createElement('button', { className: 'primary', type: 'button', textContent: '真ん中で話す' });
+        confirm.addEventListener('click', () => {
+          state.textDraft.speaker = 'center';
+          setStage('addText');
+        });
+        const cancel = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+        cancel.addEventListener('click', () => setStage('menu'));
+        stageContainer.append(info, warn, confirm, cancel);
+        return;
+      }
+
+      const actions = createElement('div', { className: 'stage-actions' });
+      slots.forEach(slot => {
+        const btn = createElement('button', { className: 'flat', type: 'button', textContent: slotLabel(slot) });
+        btn.addEventListener('click', () => {
+          state.textDraft.speaker = slot;
+          setStage('addText');
+        });
+        actions.appendChild(btn);
+      });
+
+      const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+      cancelButton.addEventListener('click', () => setStage('menu'));
+      actions.appendChild(cancelButton);
+
+      stageContainer.append(info, actions);
+    }
+
+    function renderAddText() {
+      const isNarration = state.textDraft.narration;
+      const info = createElement('p', { textContent: isNarration ? 'ナレーションの文章を入力します。' : `${slotLabel(state.textDraft.speaker)}のセリフを入力します。` });
+      const textarea = createElement('textarea');
+      textarea.value = state.textDraft.text || '';
+      textarea.placeholder = isNarration ? '例: こうして冒険は始まった。' : '例: さあ、行こう！';
+      textarea.addEventListener('input', () => {
+        state.textDraft.text = textarea.value;
+      });
+
+      const actions = createElement('div', { className: 'stage-actions' });
+      const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+      cancelButton.addEventListener('click', () => {
+        state.textDraft = { type: 'text', narration: false, speaker: 'center', text: '' };
+        setStage('menu');
+      });
+
+      const addButton = createElement('button', { className: 'primary', type: 'button', textContent: '文章を追加' });
+      addButton.disabled = !(state.textDraft.text || '').trim();
+      addButton.addEventListener('click', () => {
+        if (!(state.textDraft.text || '').trim()) {
+          alert('文章を入力してください。');
+          return;
+        }
+        const op = {
+          kind: 'text',
+          text: state.textDraft.text.trim(),
+          narration: state.textDraft.narration,
+          slot: state.textDraft.narration ? null : state.textDraft.speaker || 'center'
+        };
+        appendFlowOp(op);
+        state.textDraft = { type: 'text', narration: false, speaker: 'center', text: '' };
+        setStage('menu');
+      });
+
+      actions.append(cancelButton, addButton);
+      stageContainer.append(info, textarea, actions);
+    }
+
+    function renderAddWait() {
+      const info = createElement('p', { textContent: '何秒待つか入力してください。' });
+      const waitInput = createElement('input', { type: 'number', min: 0.5, step: 0.5, value: 1.0 });
+      const actions = createElement('div', { className: 'stage-actions' });
+      const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+      cancelButton.addEventListener('click', () => setStage('menu'));
+      const addButton = createElement('button', { className: 'primary', type: 'button', textContent: '待機を追加' });
+      addButton.addEventListener('click', () => {
+        const sec = parseFloat(waitInput.value);
+        if (!Number.isFinite(sec) || sec <= 0) {
+          alert('正しい秒数を入力してください。');
+          return;
+        }
+        appendFlowOp({ kind: 'wait', seconds: sec });
+        setStage('menu');
+      });
+      actions.append(cancelButton, addButton);
+      stageContainer.append(info, waitInput, actions);
+    }
+
+    function renderChangeBackground() {
+      if (!state.pendingBackgroundChange) {
+        state.pendingBackgroundChange = { type: '', youtubeId: '', assetKey: null, assetURL: '' };
+      }
+      const info = createElement('p', { textContent: '変更後の背景を選択します。' });
+      const typeLabel = createElement('label', { textContent: '背景タイプ' });
+      const typeSelect = createElement('select');
+      ['', 'youtube', 'image'].forEach(value => {
+        const option = createElement('option', { value, textContent: value === '' ? '選択してください' : (value === 'youtube' ? 'YouTube' : '画像') });
+        if (state.pendingBackgroundChange.type === value) option.selected = true;
+        typeSelect.appendChild(option);
+      });
+
+      const youtubeLabel = createElement('label', { htmlFor: 'change-bg-youtube', textContent: 'YouTubeリンクまたはID' });
+      const youtubeInput = createElement('input', { type: 'text', id: 'change-bg-youtube', value: state.pendingBackgroundChange.youtubeId, placeholder: 'https://youtu.be/...' });
+
+      const imageLabel = createElement('label', { htmlFor: 'change-bg-image', textContent: '背景画像 (アップロード)' });
+      const imageInput = createElement('input', { type: 'file', id: 'change-bg-image', accept: 'image/*' });
+
+      const imageURLLabel = createElement('label', { htmlFor: 'change-bg-url', textContent: '背景画像URL' });
+      const imageURLInput = createElement('input', { type: 'url', id: 'change-bg-url', value: state.pendingBackgroundChange.assetURL, placeholder: 'https://example.com/background.png' });
+
+      const updateVisibility = () => {
+        const type = typeSelect.value;
+        youtubeLabel.style.display = youtubeInput.style.display = type === 'youtube' ? 'block' : 'none';
+        imageLabel.style.display = imageInput.style.display = type === 'image' ? 'block' : 'none';
+        imageURLLabel.style.display = imageURLInput.style.display = type === 'image' ? 'block' : 'none';
+      };
+      updateVisibility();
+
+      typeSelect.addEventListener('change', () => {
+        state.pendingBackgroundChange.type = typeSelect.value;
+        if (typeSelect.value !== 'youtube') state.pendingBackgroundChange.youtubeId = '';
+        if (typeSelect.value !== 'image') {
+          state.pendingBackgroundChange.assetKey = null;
+          state.pendingBackgroundChange.assetURL = '';
+        }
+        updateVisibility();
+      });
+
+      youtubeInput.addEventListener('input', () => {
+        state.pendingBackgroundChange.youtubeId = youtubeInput.value.trim();
+      });
+
+      imageURLInput.addEventListener('input', () => {
+        state.pendingBackgroundChange.assetURL = imageURLInput.value.trim();
+      });
+
+      imageInput.addEventListener('change', async () => {
+        const file = imageInput.files?.[0];
+        if (!file) return;
+        const dataUrl = await fileToDataURL(file);
+        state.pendingBackgroundChange.assetKey = storeAsset(dataUrl, 'background', file.name);
+        state.pendingBackgroundChange.assetURL = '';
+      });
+
+      const actions = createElement('div', { className: 'stage-actions' });
+      const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+      cancelButton.addEventListener('click', () => {
+        state.pendingBackgroundChange = null;
+        setStage('menu');
+      });
+
+      const nextButton = createElement('button', { className: 'primary', type: 'button', textContent: 'トランジションを選ぶ' });
+      nextButton.addEventListener('click', () => {
+        if (!state.pendingBackgroundChange) return;
+        const type = state.pendingBackgroundChange.type;
+        if (type === 'youtube' && !extractYouTubeID(state.pendingBackgroundChange.youtubeId)) {
+          alert('有効なYouTubeリンクまたはIDを入力してください。');
+          return;
+        }
+        if (type === 'image' && !state.pendingBackgroundChange.assetKey && !state.pendingBackgroundChange.assetURL) {
+          alert('画像をアップロードするかURLを入力してください。');
+          return;
+        }
+        setStage('chooseTransition');
+      });
+
+      actions.append(cancelButton, nextButton);
+      stageContainer.append(info, typeLabel, typeSelect, youtubeLabel, youtubeInput, imageLabel, imageInput, imageURLLabel, imageURLInput, actions);
+    }
+    function renderChooseTransition() {
+      if (!state.pendingBackgroundChange) {
+        setStage('menu');
+        return;
+      }
+      const info = createElement('p', { textContent: '背景変更時の演出を選んでください。' });
+      const actions = createElement('div', { className: 'stage-actions' });
+      const blurButton = createElement('button', { className: 'flat', type: 'button', textContent: 'ブラー' });
+      blurButton.addEventListener('click', () => {
+        appendBGChangeFromPending('blur');
+      });
+      const switchButton = createElement('button', { className: 'flat', type: 'button', textContent: '切り替え' });
+      switchButton.addEventListener('click', () => {
+        appendBGChangeFromPending('switch');
+      });
+      const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+      cancelButton.addEventListener('click', () => {
+        state.pendingBackgroundChange = null;
+        setStage('menu');
+      });
+      actions.append(blurButton, switchButton, cancelButton);
+      stageContainer.append(info, actions);
+    }
+
+    function renderChooseCover() {
+      const info = createElement('p', { textContent: 'クエスト一覧に表示するトップ画像（サムネイル）を設定します。' });
+      const current = createElement('p', { className: 'log', textContent: state.cover.assetKey ? `選択済み: asset://${state.cover.assetKey}` : (state.cover.url ? `選択済みURL: ${state.cover.url}` : '未設定') });
+      const sourceLabel = createElement('label', { textContent: '指定方法' });
+      const sourceSelect = createElement('select');
+      ['upload', 'url'].forEach(value => {
+        const option = createElement('option', { value, textContent: value === 'upload' ? '画像をアップロード' : '画像URLを入力' });
+        if ((!state.cover.assetKey && state.cover.url) && value === 'url') option.selected = true;
+        if (state.cover.assetKey && value === 'upload') option.selected = true;
+        sourceSelect.appendChild(option);
+      });
+
+      const fileLabel = createElement('label', { htmlFor: 'cover-image-file', textContent: 'サムネイル画像' });
+      const fileInput = createElement('input', { type: 'file', id: 'cover-image-file', accept: 'image/*' });
+      const urlLabel = createElement('label', { htmlFor: 'cover-image-url', textContent: 'サムネイル画像URL' });
+      const urlInput = createElement('input', { type: 'url', id: 'cover-image-url', value: state.cover.url, placeholder: 'https://example.com/cover.png' });
+
+      const updateVisibility = () => {
+        const type = sourceSelect.value;
+        fileLabel.style.display = fileInput.style.display = type === 'upload' ? 'block' : 'none';
+        urlLabel.style.display = urlInput.style.display = type === 'url' ? 'block' : 'none';
+      };
+      updateVisibility();
+
+      sourceSelect.addEventListener('change', () => {
+        updateVisibility();
+      });
+
+      urlInput.addEventListener('input', () => {
+        state.cover.url = urlInput.value.trim();
+        state.cover.assetKey = null;
+        renderQuestPreview();
+      });
+
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        const dataUrl = await fileToDataURL(file);
+        state.cover.assetKey = storeAsset(dataUrl, 'cover', file.name);
+        state.cover.url = '';
+        renderQuestPreview();
+      });
+
+      const actions = createElement('div', { className: 'stage-actions' });
+      const backButton = createElement('button', { className: 'secondary', type: 'button', textContent: '戻る' });
+      backButton.addEventListener('click', () => setStage('menu'));
+      const doneButton = createElement('button', { className: 'primary', type: 'button', textContent: '完了' });
+      doneButton.addEventListener('click', () => {
+        if (sourceSelect.value === 'url' && !state.cover.url) {
+          alert('URLを入力するか、アップロードを選択してください。');
+          return;
+        }
+        if (sourceSelect.value === 'upload' && !state.cover.assetKey) {
+          alert('画像をアップロードしてください。');
+          return;
+        }
+        setStage('menu');
+      });
+      actions.append(backButton, doneButton);
+      stageContainer.append(info, current, sourceLabel, sourceSelect, fileLabel, fileInput, urlLabel, urlInput, actions);
+    }
+
+    function renderAskThumbnail() {
+      const info = createElement('p', { textContent: 'アプリでは最終確認画面です。JSONプレビューを確認し、必要であればサムネイルも設定してください。' });
+      const summary = createElement('ul');
+      summary.style.margin = '0';
+      summary.style.paddingLeft = '1.25rem';
+      summary.innerHTML = `
+        <li>タイトル: ${state.title || '(未設定)'}</li>
+        <li>背景: ${state.background.type || '(未設定)'}</li>
+        <li>フロー数: ${state.flowOps.length}</li>
+        <li>サムネイル: ${state.cover.assetKey ? 'asset://' + state.cover.assetKey : (state.cover.url || 'なし')}</li>
+      `;
+      const actions = createElement('div', { className: 'stage-actions' });
+      const finishButton = createElement('button', { className: 'primary', type: 'button', textContent: '完了してメニューへ戻る' });
+      finishButton.addEventListener('click', () => setStage('menu'));
+      const coverButton = createElement('button', { className: 'flat', type: 'button', textContent: 'サムネイルを設定する' });
+      coverButton.addEventListener('click', () => setStage('chooseCover'));
+      const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
+      cancelButton.addEventListener('click', () => setStage('menu'));
+      actions.append(finishButton, coverButton, cancelButton);
+      stageContainer.append(info, summary, actions);
+    }
+    function appendBGChangeFromPending(transition) {
+      if (!state.pendingBackgroundChange) return;
+      const pending = state.pendingBackgroundChange;
+      const type = pending.type;
+      if (type === 'youtube') {
+        const id = extractYouTubeID(pending.youtubeId);
+        if (!id) {
+          alert('有効なYouTubeリンクまたはIDを入力してください。');
+          return;
+        }
+        appendFlowOp({ kind: 'bgYouTube', youtubeID: id, transition });
+      } else if (type === 'image') {
+        appendFlowOp({ kind: 'bgImage', assetKey: pending.assetKey, assetURL: pending.assetURL, transition });
+      }
+      state.pendingBackgroundChange = null;
+      setStage('menu');
+    }
+
+    function appendFlowOp(op) {
+      state.flowOps.push(op);
+      renderTimeline();
+      renderQuestPreview();
+    }
+
+    function getActiveSlots() {
+      const active = new Set();
+      state.flowOps.forEach(op => {
+        switch (op.kind) {
+          case 'charAdd':
+            if (op.slot) active.add(op.slot);
+            break;
+          case 'charRemove':
+            if (op.slot) active.delete(op.slot);
+            break;
+        }
+      });
+      return active;
+    }
+
+    function slotLabel(slot) {
+      switch (slot) {
+        case 'left':
+          return '左';
+        case 'center':
+          return '真ん中';
+        case 'right':
+          return '右';
+        default:
+          return 'ナレーション';
+      }
+    }
+
+    function storeAsset(dataUrl, kind, name) {
+      const key = `${kind}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      state.assets[key] = { dataUrl, kind, name };
+      return key;
+    }
+
+    function fileToDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    }
+    function renderTimeline() {
+      timelineContainer.innerHTML = '';
+      if (state.flowOps.length === 0) {
+        const empty = createElement('p', { className: 'log', textContent: 'まだフローはありません。メニューから操作を追加してください。' });
+        timelineContainer.appendChild(empty);
+        return;
+      }
+
+      state.flowOps.forEach((op, index) => {
+        const item = createElement('div', { className: 'timeline-item', role: 'listitem' });
+        const textWrapper = createElement('div');
+        const title = createElement('strong', { textContent: timelineTitle(op) });
+        const subtitle = createElement('span', { textContent: timelineSubtitle(op) });
+        textWrapper.append(title, subtitle);
+        const removeButton = createElement('button', { className: 'danger', type: 'button', textContent: '削除' });
+        removeButton.addEventListener('click', () => {
+          state.flowOps.splice(index, 1);
+          renderTimeline();
+          renderQuestPreview();
+        });
+        item.append(textWrapper, removeButton);
+        timelineContainer.appendChild(item);
+      });
+    }
+
+    function timelineTitle(op) {
+      switch (op.kind) {
+        case 'charAdd':
+          return `キャラ追加 (${slotLabel(op.slot)})`;
+        case 'charRemove':
+          return `キャラ退場 (${slotLabel(op.slot)})`;
+        case 'charAnim':
+          return `動き変更 (${slotLabel(op.slot)})`;
+        case 'charFlip':
+          return `向き変更 (${slotLabel(op.slot)})`;
+        case 'text':
+          return op.narration ? 'ナレーション' : `セリフ (${slotLabel(op.slot)})`;
+        case 'wait':
+          return 'ウェイト';
+        case 'bgImage':
+          return '背景変更 (画像)';
+        case 'bgYouTube':
+          return '背景変更 (YouTube)';
+        default:
+          return op.kind;
+      }
+    }
+
+    function timelineSubtitle(op) {
+      switch (op.kind) {
+        case 'charAdd': {
+          const scale = op.scale ? ` x${Number(op.scale).toFixed(2)}` : '';
+          const source = op.assetURL ? op.assetURL : (op.assetKey ? `asset://${op.assetKey}` : '不明');
+          return `${op.anim || 'none'}${scale} | ${source}`;
+        }
+        case 'charRemove':
+          return '退場';
+        case 'charAnim':
+          return op.anim || 'none';
+        case 'charFlip':
+          return '左右反転';
+        case 'text':
+          return op.text || '';
+        case 'wait':
+          return `${op.seconds}s`;
+        case 'bgImage':
+          return `${op.transition || 'switch'} | ${op.assetURL || (op.assetKey ? 'asset://' + op.assetKey : '')}`;
+        case 'bgYouTube':
+          return `${op.transition || 'switch'} | ${op.youtubeID}`;
+        default:
+          return '';
+      }
+    }
+    function extractYouTubeID(input) {
+      if (!input) return '';
+      const trimmed = input.trim();
+      const direct = /^[a-zA-Z0-9_-]{11}$/;
+      if (direct.test(trimmed)) return trimmed;
+      const match = trimmed.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+      if (match) return match[1];
+      const short = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+      if (short) return short[1];
+      return '';
+    }
+
+    function generateScriptLines() {
+      const lines = [];
+      state.flowOps.forEach(op => {
+        switch (op.kind) {
+          case 'text':
+            if (!op.text) break;
+            if (op.narration) {
+              lines.push(':::textType(narration)');
+              lines.push(op.text);
+            } else {
+              lines.push(':::textType(dialog)');
+              const speaker = op.slot || 'center';
+              lines.push(`:::speaker(${speaker})`);
+              lines.push(op.text);
+            }
+            break;
+          case 'wait':
+            if (op.seconds != null) {
+              lines.push(`:::wait(${Number(op.seconds)})`);
+            }
+            break;
+          case 'charAdd': {
+            const slot = op.slot || 'center';
+            const anim = op.anim || 'none';
+            const scale = Number(op.scale || 1).toFixed(2);
+            const source = op.assetURL || (op.assetKey ? `asset://${op.assetKey}` : '');
+            if (!source) break;
+            lines.push(`:::charAdd(${slot},${source},${anim},${scale})`);
+            break;
+          }
+          case 'charRemove':
+            if (op.slot) lines.push(`:::charRemove(${op.slot})`);
+            break;
+          case 'charAnim':
+            if (op.slot && op.anim) lines.push(`:::charAnim(${op.slot},${op.anim})`);
+            break;
+          case 'charFlip':
+            if (op.slot) lines.push(`:::charFlip(${op.slot})`);
+            break;
+          case 'bgImage': {
+            const source = op.assetURL || (op.assetKey ? `asset://${op.assetKey}` : '');
+            if (!source) break;
+            const transition = op.transition || 'switch';
+            lines.push(`:::bgImage(${source},${transition})`);
+            break;
+          }
+          case 'bgYouTube':
+            if (op.youtubeID) {
+              const transition = op.transition || 'switch';
+              lines.push(`:::bgYouTube(${op.youtubeID},${transition})`);
+            }
+            break;
+          default:
+            break;
+        }
+      });
+      return lines;
+    }
+
+    function collectQuest() {
+      if (!state.title.trim()) return null;
+      if (!isBackgroundReady(state.background)) return null;
+      const bgType = state.background.type;
+      let bgURL = '';
+      if (bgType === 'youtube') {
+        const id = extractYouTubeID(state.background.youtubeId);
+        if (!id) return null;
+        bgURL = id;
+      } else if (bgType === 'image') {
+        bgURL = state.background.assetURL || (state.background.assetKey ? `asset://${state.background.assetKey}` : '');
+        if (!bgURL) return null;
+      }
+
+      const lines = generateScriptLines();
+      const quest = {
+        title: state.title.trim(),
+        authorUID: state.authorUID || 'guest',
+        bgType,
+        bgURL,
+        dialogLines: lines,
+        flowOps: state.flowOps,
+        assets: state.assets,
+        cover: state.cover.assetKey ? { type: 'asset', key: state.cover.assetKey } : (state.cover.url ? { type: 'url', url: state.cover.url } : null),
+        location: buildLocationPayload(),
+        radius: Number(radiusInput.value) || 500
+      };
+      return quest;
+    }
+
+    function buildLocationPayload() {
+      const mode = state.locationChoice.mode;
+      const radius = Number(radiusInput.value) || 500;
+      const payload = {
+        mode,
+        name: locationNameInput.value.trim() || null,
+        detail: locationDetailInput.value.trim() || null,
+        radius
+      };
+      if (mode === 'specific' && state.selectedCoordinate) {
+        payload.latitude = Number(state.selectedCoordinate.latitude.toFixed(6));
+        payload.longitude = Number(state.selectedCoordinate.longitude.toFixed(6));
+      } else if (mode === 'current' && state.selectedCoordinate) {
+        payload.latitude = Number(state.selectedCoordinate.latitude.toFixed(6));
+        payload.longitude = Number(state.selectedCoordinate.longitude.toFixed(6));
+      } else {
+        payload.latitude = null;
+        payload.longitude = null;
+      }
+      return payload;
+    }
+
+    function renderQuestPreview() {
+      const quest = collectQuest();
+      if (quest) {
+        questPreview.textContent = JSON.stringify(quest, null, 2);
+      } else {
+        const fallback = {
+          title: state.title,
+          authorUID: state.authorUID,
+          bgType: state.background.type,
+          bgURL: state.background.type === 'youtube' ? state.background.youtubeId : state.background.assetURL || state.background.assetKey,
+          dialogLines: generateScriptLines(),
+          flowOps: state.flowOps,
+          assets: state.assets,
+          location: buildLocationPayload()
+        };
+        questPreview.textContent = JSON.stringify(fallback, null, 2);
+      }
+    }
+    document.getElementById('upload-quest').addEventListener('click', async () => {
+      const quest = collectQuest();
+      if (!quest) {
+        uploadLog.textContent = '必須項目が不足しています。タイトル・背景・フローを確認してください。';
+        return;
+      }
+      const endpoint = document.getElementById('upload-endpoint').value.trim();
+      if (!endpoint) {
+        uploadLog.textContent = 'アップロード先エンドポイントを入力してください。';
+        return;
+      }
+      const token = document.getElementById('upload-token').value.trim();
+      uploadLog.textContent = 'クエストをアップロードしています...';
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': token } : {})
+          },
+          body: JSON.stringify(quest)
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`${response.status} ${text}`);
+        }
+        uploadLog.textContent = 'アップロードに成功しました。アプリからも取り込めることを確認してください。';
+      } catch (error) {
+        console.error(error);
+        uploadLog.textContent = `アップロードに失敗しました: ${error.message}`;
       }
     });
 
+    document.getElementById('download-quest').addEventListener('click', () => {
+      const quest = collectQuest();
+      if (!quest) {
+        uploadLog.textContent = 'JSONを出力するにはタイトル・背景・フローが必要です。';
+        return;
+      }
+      const blob = new Blob([JSON.stringify(quest, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const safeTitle = quest.title.replace(/[^a-z0-9_-]+/gi, '_').toLowerCase() || 'quest';
+      a.href = url;
+      a.download = `${safeTitle}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      uploadLog.textContent = 'JSONファイルをダウンロードしました。';
+    });
+
+    document.getElementById('reset-all').addEventListener('click', () => {
+      resetAll();
+    });
+
+    function resetAll() {
+      state.stage = 'askTitle';
+      state.title = '';
+      state.authorUID = 'guest';
+      state.background = { type: '', youtubeId: '', assetKey: null, assetURL: '' };
+      state.flowOps = [];
+      state.assets = {};
+      state.cover = { assetKey: null, url: '' };
+      state.textDraft = { type: 'text', narration: false, speaker: 'center', text: '' };
+      state.charDraft = {};
+      state.pendingBackgroundChange = null;
+      state.tempSlot = null;
+      state.locationChoice = { mode: 'everywhere', name: '', detail: '' };
+      latitudeInput.value = '';
+      longitudeInput.value = '';
+      locationModeInputs.forEach(input => { input.checked = input.value === 'everywhere'; });
+      locationNameInput.value = '';
+      locationDetailInput.value = '';
+      if (state.map && state.marker && typeof mapkit !== 'undefined') {
+        state.map.removeAnnotation(state.marker);
+        state.marker = null;
+      }
+      state.selectedCoordinate = null;
+      renderStage();
+      uploadLog.textContent = 'すべてリセットしました。';
+      mapLog.textContent = '位置情報がリセットされました。';
+    }
+
     document.getElementById('toggle-theme').addEventListener('click', () => {
       document.body.classList.toggle('dark');
+      if (state.map && typeof mapkit !== 'undefined') {
+        state.map.colorScheme = document.body.classList.contains('dark') ? mapkit.Map.ColorSchemes.Dark : mapkit.Map.ColorSchemes.Light;
+      }
     });
 
     document.getElementById('mapkit-init').addEventListener('click', () => {
       const token = document.getElementById('mapkit-token').value.trim();
       if (!token) {
-        mapLog.textContent = 'JWTが入力されていません。Apple Developerで発行したトークンを入力してください。';
+        mapLog.textContent = 'JWTが入力されていません。';
         return;
       }
-
       if (typeof mapkit === 'undefined') {
         mapLog.textContent = 'MapKit JSが読み込まれていません。ネットワーク接続やスクリプトURLを確認してください。';
         return;
       }
-
       try {
-        mapkit.init({
-          authorizationCallback: done => {
-            done(token);
-          }
-        });
-
+        mapkit.init({ authorizationCallback: done => done(token) });
         state.map = new mapkit.Map('map', {
           colorScheme: document.body.classList.contains('dark') ? mapkit.Map.ColorSchemes.Dark : mapkit.Map.ColorSchemes.Light
         });
-
         state.map.addEventListener('singleTap', event => {
+          if (state.locationChoice.mode !== 'specific') return;
           const { latitude, longitude } = event.coordinate;
           setQuestLocation(latitude, longitude);
         });
-
-        const lat = parseFloat(latitudeInput.value) || 35.6809591;
-        const lon = parseFloat(longitudeInput.value) || 139.7673068;
+        const lat = parseFloat(latitudeInput.value) || 35.680959;
+        const lon = parseFloat(longitudeInput.value) || 139.767307;
         const radius = parseFloat(radiusInput.value) || 500;
         focusMap(lat, lon, radius);
         mapLog.textContent = `マップを初期化しました。現在地: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
@@ -568,7 +1630,8 @@ title: document.getElementById('quest-title')
     function focusMap(latitude, longitude, radius) {
       if (!state.map || typeof mapkit === 'undefined') return;
       const coord = new mapkit.Coordinate(latitude, longitude);
-      state.map.setRegion(new mapkit.CoordinateRegion(coord, new mapkit.CoordinateSpan(radius / 111000, radius / 111000)));
+      const span = radius / 111000;
+      state.map.setRegion(new mapkit.CoordinateRegion(coord, new mapkit.CoordinateSpan(span, span)));
       setQuestLocation(latitude, longitude);
     }
 
@@ -576,23 +1639,17 @@ title: document.getElementById('quest-title')
       state.selectedCoordinate = { latitude, longitude };
       latitudeInput.value = latitude.toFixed(6);
       longitudeInput.value = longitude.toFixed(6);
-
-      if (state.marker) {
-        if (state.map && typeof mapkit !== 'undefined') {
-          state.map.removeAnnotation(state.marker);
-        }
-        state.marker = null;
+      if (state.marker && state.map && typeof mapkit !== 'undefined') {
+        state.map.removeAnnotation(state.marker);
       }
-
       if (state.map && typeof mapkit !== 'undefined') {
         state.marker = new mapkit.MarkerAnnotation(new mapkit.Coordinate(latitude, longitude), {
-          title: questFields.title.value || 'クエストポイント',
+          title: state.title || 'クエストポイント',
           subtitle: 'タップで再設定できます',
           color: '#6c4cff'
         });
         state.map.addAnnotation(state.marker);
       }
-
       renderQuestPreview();
     }
 
@@ -620,153 +1677,34 @@ title: document.getElementById('quest-title')
       const radius = parseFloat(radiusInput.value) || 500;
       if (state.selectedCoordinate) {
         focusMap(state.selectedCoordinate.latitude, state.selectedCoordinate.longitude, radius);
-        renderQuestPreview();
       }
+      renderQuestPreview();
     });
 
-    Object.values(questFields).forEach(field => {
-      field.addEventListener('input', () => {
-        if (state.marker && state.map && typeof mapkit !== 'undefined') {
-          state.marker.title = questFields.title.value || 'クエストポイント';
+    locationModeInputs.forEach(input => {
+      input.addEventListener('change', () => {
+        if (!input.checked) return;
+        state.locationChoice.mode = input.value;
+        if (input.value === 'everywhere') {
+          state.selectedCoordinate = null;
+          if (state.marker && state.map && typeof mapkit !== 'undefined') {
+            state.map.removeAnnotation(state.marker);
+            state.marker = null;
+          }
+          mapLog.textContent = 'すべての場所モードに切り替えました。';
+        } else if (input.value === 'current') {
+          mapLog.textContent = '現在地モードです。緯度経度を入力するか、マップで指定してください。';
+        } else {
+          mapLog.textContent = 'マップをタップして設置場所を指定してください。';
         }
-
         renderQuestPreview();
       });
     });
 
+    locationNameInput.addEventListener('input', renderQuestPreview);
+    locationDetailInput.addEventListener('input', renderQuestPreview);
 
-
-    document.getElementById('upload-quest').addEventListener('click', async () => {
-      const quest = collectQuest();
-      if (!quest) {
-        uploadLog.textContent = '必須項目が不足しています。タイトル、セリフ、位置を確認してください。';
-        return;
-      }
-
-      const endpoint = document.getElementById('upload-endpoint').value.trim();
-      if (!endpoint) {
-        uploadLog.textContent = 'アップロード先エンドポイントを入力してください。';
-        return;
-      }
-
-      const token = document.getElementById('upload-token').value.trim();
-
-      uploadLog.textContent = 'クエストをアップロードしています...';
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': token } : {})
-          },
-          body: JSON.stringify(quest)
-        });
-
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(`${response.status} ${text}`);
-        }
-
-        uploadLog.textContent = 'アップロードに成功しました。Swiftアプリからも取得できることを確認してください。';
-      } catch (error) {
-        console.error(error);
-        uploadLog.textContent = `アップロードに失敗しました: ${error.message}`;
-      }
-    });
-
-    document.getElementById('download-quest').addEventListener('click', () => {
-      const quest = collectQuest();
-      if (!quest) {
-        uploadLog.textContent = 'タイトル、セリフ、位置が揃っていないため、ダウンロードできません。';
-        return;
-      }
-
-      const blob = new Blob([JSON.stringify(quest, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const safeTitle = quest.title.replace(/[^a-z0-9_-]+/gi, '_').toLowerCase() || 'quest';
-      a.href = url;
-      a.download = `${safeTitle}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      uploadLog.textContent = 'JSONファイルをダウンロードしました。Gitやクラウドに保存してチームと共有できます。';
-    });
-
-    document.getElementById('reset-all').addEventListener('click', () => {
-      Object.values(questFields).forEach(field => field.value = '');
-      latitudeInput.value = '';
-      longitudeInput.value = '';
-      radiusInput.value = 500;
-      state.selectedCoordinate = null;
-      if (state.map && state.marker && typeof mapkit !== 'undefined') {
-        state.map.removeAnnotation(state.marker);
-        state.marker = null;
-      }
-      resetDialogues();
-      renderQuestPreview();
-      mapLog.textContent = '位置情報がリセットされました。マップで新しい地点を選択してください。';
-      uploadLog.textContent = 'アップロードログをリセットしました。';
-    });
-
-    document.getElementById('clear-form').addEventListener('click', () => {
-      Object.values(questFields).forEach(field => field.value = '');
-            resetDialogues();
-      if (state.marker && state.map && typeof mapkit !== 'undefined') {
-        state.marker.title = 'クエストポイント';
-      }
-      renderQuestPreview();
-      uploadLog.textContent = 'シナリオ入力をクリアしました。位置情報はそのままです。';
-    });
-
-    function collectQuest() {
-      const title = questFields.title.value.trim();
-      if (!title) return null;
-      const script = readDialogueRows(false);
-      if (script.length === 0) return null;
-      if (!state.selectedCoordinate) return null;
-      const radius = Number(radiusInput.value) || 500;
-      const { latitude, longitude } = state.selectedCoordinate;
-      return {
-        title,
-        script,
-        location: {
-          latitude,
-          longitude,
-          radius
-        }
-      };
-    }
-
-    function renderQuestPreview() {
-      const quest = collectQuest();
-      if (quest) {
-        questPreview.textContent = JSON.stringify(quest, null, 2);
-        return;
-      }
-
-      const radius = Number(radiusInput.value) || 500;
-      const fallback = {
-        title: questFields.title.value.trim(),
-        script: readDialogueRows(true),
-        location: state.selectedCoordinate ? {
-          latitude: state.selectedCoordinate.latitude,
-          longitude: state.selectedCoordinate.longitude,
-          radius
-        } : {
-          latitude: null,
-          longitude: null,
-          radius
-        }
-      };
-
-      questPreview.textContent = JSON.stringify(fallback, null, 2);
-    }
-    
-resetDialogues();
-    renderQuestPreview();
+    setStage('askTitle');
   </script>
 </body>
 </html>
-<!-- redeploy test -->
