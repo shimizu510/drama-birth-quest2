@@ -189,6 +189,28 @@
       box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
     }
 
+    details.config-panel {
+      border-radius: 12px;
+      border: 1px solid rgba(31, 31, 31, 0.12);
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    body.dark details.config-panel {
+      border-color: rgba(245, 245, 247, 0.2);
+      background: rgba(44, 44, 46, 0.55);
+    }
+
+    details.config-panel summary {
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+    }
+
+    details.config-panel[open] {
+      box-shadow: inset 0 0 0 1px rgba(108, 76, 255, 0.25);
+    }
+
     .flex-row {
       display: flex;
       gap: 1rem;
@@ -393,6 +415,18 @@
       <p>アップロードボタンを押すと Firebase（プロジェクト: <code>poketquest-3a73d</code>）に直接保存され、iOSアプリと同じ形式でクエストが追加されます。MapKit の地点指定を行わなくても、位置情報フィールドはアプリで利用できる値が保存されます。</p>
       <p class="log" id="firebase-status">Firebaseの初期化を待機しています…</p>
 
+      <details class="config-panel">
+        <summary>Firebase設定（Web APIキーを貼り付け）</summary>
+        <p>Firebaseコンソール &gt; プロジェクトの設定 &gt; 「アプリを追加」で Web アプリを登録し、表示される構成スニペットを JSON 形式で貼り付けてください。保存するとブラウザに暗号化せず保持されるため、共有端末では使用後に削除してください。</p>
+        <label for="firebase-config-input">Firebase構成 JSON</label>
+        <textarea id="firebase-config-input" rows="6" placeholder='{"apiKey":"AIza...","authDomain":"example.firebaseapp.com","projectId":"example","storageBucket":"example.appspot.com","messagingSenderId":"","appId":""}'></textarea>
+        <div class="button-row">
+          <button class="flat" type="button" id="save-firebase-config">保存</button>
+          <button class="flat" type="button" id="clear-firebase-config">保存した設定を削除</button>
+          <button class="flat" type="button" id="test-firebase-config">接続を再試行</button>
+        </div>
+        <p class="log" id="firebase-config-log">Web用の Firebase 構成が設定されていない場合、匿名サインインに失敗します。</p>
+      </details>
       <div class="button-row">
         <button class="primary" type="button" id="upload-quest">アップロード</button>
         <button class="secondary" type="button" id="download-quest">JSONをダウンロード</button>
@@ -415,7 +449,12 @@
     const mapLog = document.getElementById('map-log');
     const uploadLog = document.getElementById('upload-log');
     const firebaseStatus = document.getElementById('firebase-status');
-
+    const firebaseConfigInput = document.getElementById('firebase-config-input');
+    const firebaseConfigLog = document.getElementById('firebase-config-log');
+    const firebaseConfigSaveButton = document.getElementById('save-firebase-config');
+    const firebaseConfigClearButton = document.getElementById('clear-firebase-config');
+    const firebaseConfigTestButton = document.getElementById('test-firebase-config');
+    
     const latitudeInput = document.getElementById('latitude');
     const longitudeInput = document.getElementById('longitude');
     const radiusInput = document.getElementById('regionRadius');
@@ -442,13 +481,117 @@
       locationChoice: { mode: 'everywhere', name: '', detail: '' }
     };
 
+    const FIREBASE_CONFIG_STORAGE_KEY = 'dbq-firebase-config';
+
     let firebaseApp = null;
     let firebaseAuth = null;
     let firebaseFirestore = null;
     let firebaseStorage = null;
     let firebaseInitError = null;
     let firebaseUserIdPreview = '';
+    let firebaseConfig = loadStoredFirebaseConfig();
 
+    const DEFAULT_FIREBASE_CONFIG = {
+      apiKey: 'AIzaSyB0bUTeC-uXTW8SZ-iGSCeTCR35YegtTCs',
+      authDomain: 'poketquest-3a73d.firebaseapp.com',
+      projectId: 'poketquest-3a73d',
+      storageBucket: 'poketquest-3a73d.appspot.com',
+      messagingSenderId: '254784688722',
+      appId: '1:254784688722:ios:0742423c0e83009fc8058b'
+    };
+
+    function loadStoredFirebaseConfig() {
+      if (!('localStorage' in window)) return null;
+      try {
+        const raw = window.localStorage.getItem(FIREBASE_CONFIG_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      } catch (error) {
+        console.warn('Failed to read stored Firebase config', error);
+      }
+      return null;
+    }
+
+    function saveFirebaseConfig(config) {
+      if (!('localStorage' in window)) return;
+      try {
+        window.localStorage.setItem(FIREBASE_CONFIG_STORAGE_KEY, JSON.stringify(config));
+        firebaseConfig = config;
+      } catch (error) {
+        console.warn('Failed to save Firebase config', error);
+        firebaseConfig = config;
+      }
+    }
+
+    function clearStoredFirebaseConfig() {
+      if (!('localStorage' in window)) return;
+      try {
+        window.localStorage.removeItem(FIREBASE_CONFIG_STORAGE_KEY);
+      } catch (error) {
+        console.warn('Failed to clear Firebase config', error);
+      }
+      firebaseConfig = null;
+    }
+
+    function validateFirebaseConfig(config) {
+      if (!config || typeof config !== 'object') {
+        return 'JSONがオブジェクト形式ではありません。';
+      }
+      const requiredFields = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'appId'];
+      for (const field of requiredFields) {
+        if (typeof config[field] !== 'string' || !config[field]) {
+          return `必須フィールド「${field}」が見つからないか空です。`;
+        }
+      }
+      return null;
+    }
+
+    function updateFirebaseConfigEditor() {
+      if (!firebaseConfigInput || !firebaseConfigLog) return;
+      if (firebaseConfig) {
+        firebaseConfigInput.value = JSON.stringify(firebaseConfig, null, 2);
+        firebaseConfigLog.textContent = 'Web用のFirebase構成を保存しています。この設定で接続を試みます。';
+      } else {
+        firebaseConfigInput.value = '';
+        firebaseConfigLog.textContent = 'Web用の構成が未保存のため、iOSアプリ用のデフォルト設定で接続を試みます（制限されている場合はエラーになります）。';
+      }
+    }
+
+    function usingDefaultFirebaseConfig() {
+      return !firebaseConfig;
+    }
+
+    function getActiveFirebaseConfig() {
+      return firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+    }
+
+    async function resetFirebaseState() {
+      if (firebaseApp && typeof firebaseApp.delete === 'function') {
+        try {
+          await firebaseApp.delete();
+        } catch (error) {
+          console.warn('Failed to delete Firebase app before reinitializing', error);
+        }
+      }
+      firebaseApp = null;
+      firebaseAuth = null;
+      firebaseFirestore = null;
+      firebaseStorage = null;
+      firebaseInitError = null;
+      firebaseUserIdPreview = '';
+    }
+
+    async function reinitializeFirebase() {
+      await resetFirebaseState();
+      initializeFirebase();
+    }
+
+    function adminRestrictedGuidance() {
+      return 'Firebaseコンソールで Web アプリを作成し、そこで発行された Web APIキーと構成をこのページの「Firebase設定」に保存してください。あわせて匿名サインインが有効になっているか確認してください。';
+    }
     function setStage(next) {
       state.stage = next;
       renderStage();
@@ -1531,14 +1674,19 @@
         return;
       }
       try {
-        const config = {
-          apiKey: 'AIzaSyB0bUTeC-uXTW8SZ-iGSCeTCR35YegtTCs',
-          authDomain: 'poketquest-3a73d.firebaseapp.com',
-          projectId: 'poketquest-3a73d',
-          storageBucket: 'poketquest-3a73d.appspot.com',
-          messagingSenderId: '254784688722',
-          appId: '1:254784688722:ios:0742423c0e83009fc8058b'
-        };
+        const config = getActiveFirebaseConfig();
+        if (!config || !config.apiKey) {
+          if (firebaseStatus) {
+            firebaseStatus.textContent = 'Firebase構成が未設定です。「Firebase設定」からWebアプリの構成を保存してください。';
+          }
+          return;
+        }
+        if (firebaseStatus) {
+          const note = usingDefaultFirebaseConfig()
+            ? 'FirebaseをiOSアプリ用のデフォルト構成で初期化しています。Web用の構成を保存するとこのメッセージは消えます。'
+            : '保存済みのWeb構成でFirebaseを初期化しています。';
+          firebaseStatus.textContent = note;
+        }
         firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
         firebaseAuth = firebase.auth();
         firebaseFirestore = firebase.firestore();
@@ -1561,12 +1709,30 @@
           firebaseInitError = error;
           if (firebaseStatus) {
             firebaseStatus.textContent = `匿名サインインに失敗しました: ${error.message}`;
+                        if (error.code === 'auth/admin-restricted-operation') {
+              firebaseStatus.textContent += `\n${adminRestrictedGuidance()}`;
+            } else if (error.code === 'auth/operation-not-allowed') {
+              firebaseStatus.textContent += '\nFirebaseコンソールのAuthentication設定で匿名サインインを有効にしてください。';
+            }
+          }
+          if (firebaseConfigLog) {
+            if (error.code === 'auth/admin-restricted-operation') {
+              firebaseConfigLog.textContent = `auth/admin-restricted-operation: ${adminRestrictedGuidance()}`;
+            } else {
+              firebaseConfigLog.textContent = `匿名サインインに失敗しました: ${error.message}`;
+            }
           }
         });
       } catch (error) {
         firebaseInitError = error;
         if (firebaseStatus) {
           firebaseStatus.textContent = `Firebase初期化に失敗しました: ${error.message}`;
+          if (error.code === 'auth/admin-restricted-operation') {
+            firebaseStatus.textContent += `\n${adminRestrictedGuidance()}`;
+          }
+        }
+        if (firebaseConfigLog && error.code === 'auth/admin-restricted-operation') {
+          firebaseConfigLog.textContent = `auth/admin-restricted-operation: ${adminRestrictedGuidance()}`;
         }
       }
     }
@@ -1615,6 +1781,12 @@
         try {
           await firebaseAuth.signInAnonymously();
         } catch (error) {
+        if (error?.code === 'auth/admin-restricted-operation') {
+            throw new Error(`匿名サインインに失敗しました: ${error.message} — ${adminRestrictedGuidance()}`);
+          }
+          if (error?.code === 'auth/operation-not-allowed') {
+            throw new Error(`匿名サインインに失敗しました: ${error.message} — FirebaseコンソールのAuthentication設定で匿名サインインを有効にしてください。`);
+          }
           throw new Error(`匿名サインインに失敗しました: ${error.message}`);
         }
       }
@@ -1865,6 +2037,58 @@
       return { id: docRef.id, questDocument };
     }
 
+if (firebaseConfigSaveButton) {
+      firebaseConfigSaveButton.addEventListener('click', async () => {
+        const raw = firebaseConfigInput?.value?.trim() ?? '';
+        if (!raw) {
+          if (firebaseConfigLog) {
+            firebaseConfigLog.textContent = 'Firebase構成のJSONを入力してください。';
+          }
+          return;
+        }
+        try {
+          const parsed = JSON.parse(raw);
+          const validationError = validateFirebaseConfig(parsed);
+          if (validationError) {
+            if (firebaseConfigLog) {
+              firebaseConfigLog.textContent = validationError;
+            }
+            return;
+          }
+          saveFirebaseConfig(parsed);
+          updateFirebaseConfigEditor();
+          if (firebaseConfigLog) {
+            firebaseConfigLog.textContent = 'Firebase構成を保存しました。再接続を試みています…';
+          }
+          await reinitializeFirebase();
+        } catch (error) {
+          if (firebaseConfigLog) {
+            firebaseConfigLog.textContent = `JSONの解析に失敗しました: ${error.message}`;
+          }
+        }
+      });
+    }
+
+    if (firebaseConfigClearButton) {
+      firebaseConfigClearButton.addEventListener('click', async () => {
+        clearStoredFirebaseConfig();
+        updateFirebaseConfigEditor();
+        if (firebaseConfigLog) {
+          firebaseConfigLog.textContent = '保存していたFirebase構成を削除しました。デフォルト構成で再接続します。';
+        }
+        await reinitializeFirebase();
+      });
+    }
+
+    if (firebaseConfigTestButton) {
+      firebaseConfigTestButton.addEventListener('click', async () => {
+        if (firebaseConfigLog) {
+          firebaseConfigLog.textContent = 'Firebaseへの接続を再試行しています…';
+        }
+        await reinitializeFirebase();
+      });
+    }
+
     document.getElementById('upload-quest').addEventListener('click', async () => {
       const quest = collectQuest();
       if (!quest) {
@@ -1877,7 +2101,11 @@
         uploadLog.textContent = `アップロードに成功しました。ドキュメントID: ${id}`;
       } catch (error) {
         console.error(error);
-        uploadLog.textContent = `アップロードに失敗しました: ${error.message}`;
+        let message = error?.message ?? String(error);
+        if (error?.code === 'auth/admin-restricted-operation' && !message.includes('Firebaseコンソール')) {
+          message += ` — ${adminRestrictedGuidance()}`;
+        }
+        uploadLog.textContent = `アップロードに失敗しました: ${message}`;
       }
     });
 
@@ -2047,6 +2275,7 @@
     locationNameInput.addEventListener('input', renderQuestPreview);
     locationDetailInput.addEventListener('input', renderQuestPreview);
 
+    updateFirebaseConfigEditor();
     initializeFirebase();
     setStage('askTitle');
   </script>
