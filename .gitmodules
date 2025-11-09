@@ -1,0 +1,4 @@
+[submodule "ios-app"]
+	path = ios-app
+	url = https://github.com/shimizu510/3DAdventure2-New2025-10-28
+	branch = main
