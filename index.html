@@ -211,19 +211,6 @@
       box-shadow: inset 0 0 0 1px rgba(108, 76, 255, 0.25);
     }
 
-    .auth-panel {
-      margin-top: 1.25rem;
-      padding: 1rem 1.25rem;
-      border-radius: 12px;
-      border: 1px dashed rgba(31, 31, 31, 0.18);
-      background: rgba(255, 255, 255, 0.55);
-    }
-
-    body.dark .auth-panel {
-      border-color: rgba(245, 245, 247, 0.25);
-      background: rgba(44, 44, 46, 0.45);
-    }
-
     .flex-row {
       display: flex;
       gap: 1rem;
@@ -440,14 +427,6 @@
         </div>
         <p class="log" id="firebase-config-log">Web用の Firebase 構成が設定されていない場合、匿名サインインに失敗します。</p>
       </details>
-      <section class="auth-panel" aria-live="polite">
-        <h3 style="margin: 1.5rem 0 0.5rem; font-size: 1.05rem;">認証ステータス</h3>
-        <p class="log" id="auth-status">Firebaseの初期化を待機しています…</p>
-        <div class="button-row">
-          <button class="flat" type="button" id="google-sign-in">Googleでログイン</button>
-          <button class="flat" type="button" id="sign-out" disabled>サインアウト</button>
-        </div>
-      </section>
       <div class="button-row">
         <button class="primary" type="button" id="upload-quest">アップロード</button>
         <button class="secondary" type="button" id="download-quest">JSONをダウンロード</button>
@@ -475,9 +454,6 @@
     const firebaseConfigSaveButton = document.getElementById('save-firebase-config');
     const firebaseConfigClearButton = document.getElementById('clear-firebase-config');
     const firebaseConfigTestButton = document.getElementById('test-firebase-config');
-    const authStatus = document.getElementById('auth-status');
-    const googleSignInButton = document.getElementById('google-sign-in');
-    const signOutButton = document.getElementById('sign-out');
     
     const latitudeInput = document.getElementById('latitude');
     const longitudeInput = document.getElementById('longitude');
@@ -514,19 +490,15 @@
     let firebaseInitError = null;
     let firebaseUserIdPreview = '';
     let firebaseConfig = loadStoredFirebaseConfig();
-    let firebaseAuthError = null;
-    let firebaseGoogleProvider = null;
-    let authActionInFlight = false;
-    
-const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyA7E1uXNHpCnl6uW4PhQj9QnxJJ3JneA2ac",
-  authDomain: "poketquest-3a73d.firebaseapp.com",
-  projectId: "poketquest-3a73d",
-  storageBucket: "poketquest-3a73d.appspot.com",
-  messagingSenderId: "254784688722",
-  appId: "1:254784688722:web:d3d6a4ba47c089b4c8058b",
-  measurementId: "G-4DD1TP561H"
-};
+
+    const DEFAULT_FIREBASE_CONFIG = {
+      apiKey: 'AIzaSyB0bUTeC-uXTW8SZ-iGSCeTCR35YegtTCs',
+      authDomain: 'poketquest-3a73d.firebaseapp.com',
+      projectId: 'poketquest-3a73d',
+      storageBucket: 'poketquest-3a73d.appspot.com',
+      messagingSenderId: '254784688722',
+      appId: '1:254784688722:ios:0742423c0e83009fc8058b'
+    };
 
     function loadStoredFirebaseConfig() {
       if (!('localStorage' in window)) return null;
@@ -610,12 +582,6 @@ const DEFAULT_FIREBASE_CONFIG = {
       firebaseStorage = null;
       firebaseInitError = null;
       firebaseUserIdPreview = '';
-      firebaseAuthError = null;
-      firebaseGoogleProvider = null;
-      authActionInFlight = false;
-      state.authorUID = 'guest';
-      renderQuestPreview();
-      updateAuthUI();
     }
 
     async function reinitializeFirebase() {
@@ -624,44 +590,7 @@ const DEFAULT_FIREBASE_CONFIG = {
     }
 
     function adminRestrictedGuidance() {
-      return 'Firebaseコンソールで Web アプリを作成し、そこで発行された Web APIキーと構成をこのページの「Firebase設定」に保存してください。匿名サインインが許可されていない場合は、下の「Googleでログイン」ボタンからサインインしてからアップロードしてください。';
-    }
-
-    function updateAuthUI(messageOverride) {
-      if (!authStatus) return;
-      const user = firebaseAuth && firebaseAuth.currentUser ? firebaseAuth.currentUser : null;
-      const lines = [];
-      if (user) {
-        const providerId = user.isAnonymous ? 'anonymous' : ((user.providerData || []).find(Boolean)?.providerId || 'firebase');
-        const providerName = providerId === 'google.com'
-          ? 'Google'
-          : providerId === 'anonymous'
-            ? '匿名'
-            : providerId;
-        lines.push(`サインイン中: ${providerName} (${shortUid(user.uid)})`);
-        if (user.isAnonymous) {
-          lines.push('※ 匿名アカウントのままでもアップロードできます。');
-        }
-      } else {
-        lines.push('サインインしていません。匿名サインインが許可されている場合は自動的にログインします。');
-      }
-      if (firebaseAuthError) {
-        if (firebaseAuthError.code === 'auth/admin-restricted-operation') {
-          lines.push('匿名サインインが拒否されています。Googleでログインしてからアップロードしてください。');
-        } else {
-          lines.push(`サインインエラー: ${firebaseAuthError.message}`);
-        }
-      }
-      if (messageOverride) {
-        lines.push(messageOverride);
-      }
-      authStatus.textContent = lines.join('\n');
-      if (googleSignInButton) {
-        googleSignInButton.disabled = !firebaseAuth || authActionInFlight || !!(firebaseAuth.currentUser && !firebaseAuth.currentUser.isAnonymous);
-      }
-      if (signOutButton) {
-        signOutButton.disabled = !firebaseAuth || authActionInFlight || !firebaseAuth.currentUser || firebaseAuth.currentUser.isAnonymous;
-      }
+      return 'Firebaseコンソールで Web アプリを作成し、そこで発行された Web APIキーと構成をこのページの「Firebase設定」に保存してください。あわせて匿名サインインが有効になっているか確認してください。';
     }
     function setStage(next) {
       state.stage = next;
@@ -784,6 +713,11 @@ const DEFAULT_FIREBASE_CONFIG = {
     function renderAskTitle() {
       const titleLabel = createElement('label', { htmlFor: 'quest-title-input', textContent: 'クエストタイトル' });
       const titleInput = createElement('input', { type: 'text', id: 'quest-title-input', value: state.title, placeholder: '例: 失われた記憶のかけら' });
+      titleInput.addEventListener('input', () => {
+        state.title = titleInput.value;
+        renderQuestPreview();
+        renderStage();
+      });
 
       const authorLabel = createElement('label', { htmlFor: 'quest-author-input', textContent: '作者UID (未ログインの場合は guest)' });
       const authorInput = createElement('input', { type: 'text', id: 'quest-author-input', value: state.authorUID, placeholder: 'guest' });
@@ -797,19 +731,8 @@ const DEFAULT_FIREBASE_CONFIG = {
       nextButton.disabled = !state.title.trim();
       nextButton.addEventListener('click', () => setStage('askBackground'));
       actions.appendChild(nextButton);
-      
-      titleInput.addEventListener('input', () => {
-        state.title = titleInput.value;
-        nextButton.disabled = !state.title.trim();
-        renderQuestPreview();
-      });
 
       stageContainer.append(titleLabel, titleInput, authorLabel, authorInput, actions);
-
-      queueMicrotask(() => {
-        titleInput.focus();
-        titleInput.selectionStart = titleInput.selectionEnd = titleInput.value.length;
-      });
     }
     function renderAskBackground() {
       const info = createElement('p', { textContent: 'アプリと同様に、最初に表示する背景を選択します。YouTube動画か画像のどちらかを指定してください。' });
@@ -1766,39 +1689,27 @@ const DEFAULT_FIREBASE_CONFIG = {
         }
         firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
         firebaseAuth = firebase.auth();
-        await firebaseAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         firebaseFirestore = firebase.firestore();
         firebaseFirestore.settings({ ignoreUndefinedProperties: true });
         firebaseStorage = firebase.storage();
-        firebaseAuthError = null;
-        firebaseGoogleProvider = new firebase.auth.GoogleAuthProvider();
-        firebaseGoogleProvider.setCustomParameters({ prompt: 'select_account' });
-        updateAuthUI();
         if (firebaseStatus) {
           firebaseStatus.textContent = 'Firebaseを初期化しました。匿名サインインを実行しています…';
         }
         firebaseAuth.onAuthStateChanged(user => {
           if (user) {
             firebaseUserIdPreview = shortUid(user.uid);
-            state.authorUID = user.uid;
-            firebaseAuthError = null;
             if (firebaseStatus) {
               firebaseStatus.textContent = `Firebaseにサインインしました（${firebaseUserIdPreview}）`;
             }
-          } else {
-            state.authorUID = 'guest';
-            if (firebaseStatus) {
-              firebaseStatus.textContent = 'Firebaseのサインイン待機中です…';
-            }
+          } else if (firebaseStatus) {
+            firebaseStatus.textContent = 'Firebaseのサインイン待機中です…';
           }
-          renderQuestPreview();
-          updateAuthUI();
         });
         firebaseAuth.signInAnonymously().catch(error => {
-          firebaseAuthError = error;
+          firebaseInitError = error;
           if (firebaseStatus) {
             firebaseStatus.textContent = `匿名サインインに失敗しました: ${error.message}`;
-            if (error.code === 'auth/admin-restricted-operation') {
+                        if (error.code === 'auth/admin-restricted-operation') {
               firebaseStatus.textContent += `\n${adminRestrictedGuidance()}`;
             } else if (error.code === 'auth/operation-not-allowed') {
               firebaseStatus.textContent += '\nFirebaseコンソールのAuthentication設定で匿名サインインを有効にしてください。';
@@ -1811,7 +1722,6 @@ const DEFAULT_FIREBASE_CONFIG = {
               firebaseConfigLog.textContent = `匿名サインインに失敗しました: ${error.message}`;
             }
           }
-          updateAuthUI();
         });
       } catch (error) {
         firebaseInitError = error;
@@ -1824,7 +1734,6 @@ const DEFAULT_FIREBASE_CONFIG = {
         if (firebaseConfigLog && error.code === 'auth/admin-restricted-operation') {
           firebaseConfigLog.textContent = `auth/admin-restricted-operation: ${adminRestrictedGuidance()}`;
         }
-        updateAuthUI();
       }
     }
 
@@ -1869,17 +1778,10 @@ const DEFAULT_FIREBASE_CONFIG = {
         throw new Error('Firebaseの初期化が完了していません。');
       }
       if (!firebaseAuth.currentUser) {
-        if (firebaseAuthError && firebaseAuthError.code === 'auth/admin-restricted-operation') {
-          throw new Error(`匿名サインインが拒否されています。Googleでログインした後に再度アップロードしてください。${adminRestrictedGuidance()}`);
-        }
         try {
           await firebaseAuth.signInAnonymously();
-          firebaseAuthError = null;
-          updateAuthUI();
         } catch (error) {
-          if (error?.code === 'auth/admin-restricted-operation') {
-            firebaseAuthError = error;
-            updateAuthUI();
+        if (error?.code === 'auth/admin-restricted-operation') {
             throw new Error(`匿名サインインに失敗しました: ${error.message} — ${adminRestrictedGuidance()}`);
           }
           if (error?.code === 'auth/operation-not-allowed') {
@@ -2187,80 +2089,6 @@ if (firebaseConfigSaveButton) {
       });
     }
 
-if (googleSignInButton) {
-  googleSignInButton.addEventListener('click', async () => {
-    if (!firebaseAuth) {
-      updateAuthUI('Firebaseが初期化されていません。設定を確認してください。');
-      return;
-    }
-    authActionInFlight = true;
-    updateAuthUI();
-    try {
-      const provider = firebaseGoogleProvider || new firebase.auth.GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-
-      // まずはポップアップ
-      await firebaseAuth.signInWithPopup(provider);
-      firebaseAuthError = null;
-      if (firebaseStatus) firebaseStatus.textContent = 'Googleでサインインしました。';
-    } catch (error) {
-      // ポップアップがブロック/閉じられた等はリダイレクトに自動切替
-      const popupIssues = [
-        'auth/popup-blocked',
-        'auth/popup-closed-by-user',
-        'auth/cancelled-popup-request'
-      ];
-      if (popupIssues.includes(error?.code)) {
-        if (firebaseStatus) firebaseStatus.textContent = 'ポップアップが使えないため、リダイレクトでサインインします…';
-        try {
-          await firebaseAuth.signInWithRedirect(provider);
-          return; // ここからブラウザが遷移
-        } catch (redirectErr) {
-          firebaseAuthError = redirectErr;
-          if (firebaseStatus) firebaseStatus.textContent = `Googleサインインに失敗しました: ${redirectErr.message}`;
-        }
-      } else {
-        firebaseAuthError = error;
-        if (firebaseStatus) firebaseStatus.textContent = `Googleサインインに失敗しました: ${error.message}`;
-      }
-    } finally {
-      authActionInFlight = false;
-      updateAuthUI();
-    }
-  });
-}
-
-
-    if (signOutButton) {
-      signOutButton.addEventListener('click', async () => {
-        if (!firebaseAuth) return;
-        authActionInFlight = true;
-        updateAuthUI();
-        try {
-          await firebaseAuth.signOut();
-          firebaseAuthError = null;
-          if (firebaseStatus) {
-            firebaseStatus.textContent = 'サインアウトしました。匿名サインインを再試行しています…';
-          }
-          try {
-            await firebaseAuth.signInAnonymously();
-          } catch (anonError) {
-            firebaseAuthError = anonError;
-            if (firebaseStatus) {
-              firebaseStatus.textContent = `匿名サインインに失敗しました: ${anonError.message}`;
-            }
-          }
-        } catch (error) {
-          if (firebaseStatus) {
-            firebaseStatus.textContent = `サインアウトに失敗しました: ${error.message}`;
-          }
-        } finally {
-          authActionInFlight = false;
-          updateAuthUI();
-        }
-      });
-    }
-
     document.getElementById('upload-quest').addEventListener('click', async () => {
       const quest = collectQuest();
       if (!quest) {
@@ -2307,7 +2135,7 @@ if (googleSignInButton) {
     function resetAll() {
       state.stage = 'askTitle';
       state.title = '';
-      state.authorUID = firebaseAuth && firebaseAuth.currentUser ? firebaseAuth.currentUser.uid : 'guest';
+      state.authorUID = 'guest';
       state.background = { type: '', youtubeId: '', assetKey: null, assetURL: '' };
       state.flowOps = [];
       state.assets = {};
@@ -2328,7 +2156,6 @@ if (googleSignInButton) {
       }
       state.selectedCoordinate = null;
       renderStage();
-      renderQuestPreview();
       uploadLog.textContent = 'すべてリセットしました。';
       mapLog.textContent = '位置情報がリセットされました。';
     }
@@ -2372,13 +2199,11 @@ if (googleSignInButton) {
     });
 
     function focusMap(latitude, longitude, radius) {
-    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-        setQuestLocation(latitude, longitude);
-      }
       if (!state.map || typeof mapkit === 'undefined') return;
       const coord = new mapkit.Coordinate(latitude, longitude);
       const span = radius / 111000;
       state.map.setRegion(new mapkit.CoordinateRegion(coord, new mapkit.CoordinateSpan(span, span)));
+      setQuestLocation(latitude, longitude);
     }
 
     function setQuestLocation(latitude, longitude) {
