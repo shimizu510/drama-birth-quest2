@@ -1,0 +1,4 @@
+{
+  "name": "drama-birth-quest2",
+  "postCreateCommand": "git submodule update --init || true"
+}
