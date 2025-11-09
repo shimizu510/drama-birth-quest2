@@ -518,14 +518,16 @@
     let firebaseGoogleProvider = null;
     let authActionInFlight = false;
     
-    const DEFAULT_FIREBASE_CONFIG = {
-      apiKey: 'AIzaSyB0bUTeC-uXTW8SZ-iGSCeTCR35YegtTCs',
-      authDomain: 'poketquest-3a73d.firebaseapp.com',
-      projectId: 'poketquest-3a73d',
-      storageBucket: 'poketquest-3a73d.appspot.com',
-      messagingSenderId: '254784688722',
-      appId: '1:254784688722:ios:0742423c0e83009fc8058b'
-    };
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA7E1uXNHpCnl6uW4PhQj9QnxJJ3JneA2ac",
+  authDomain: "poketquest-3a73d.firebaseapp.com",
+  projectId: "poketquest-3a73d",
+  storageBucket: "poketquest-3a73d.appspot.com",
+  messagingSenderId: "254784688722",
+  appId: "1:254784688722:web:d3d6a4ba47c089b4c8058b",
+  measurementId: "G-4DD1TP561H"
+};
+
 
     function loadStoredFirebaseConfig() {
       if (!('localStorage' in window)) return null;
