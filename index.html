@@ -528,7 +528,6 @@ const DEFAULT_FIREBASE_CONFIG = {
   measurementId: "G-4DD1TP561H"
 };
 
-
     function loadStoredFirebaseConfig() {
       if (!('localStorage' in window)) return null;
       try {
@@ -1761,6 +1760,7 @@ const DEFAULT_FIREBASE_CONFIG = {
         }
         firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
         firebaseAuth = firebase.auth();
+        await firebaseAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         firebaseFirestore = firebase.firestore();
         firebaseFirestore.settings({ ignoreUndefinedProperties: true });
         firebaseStorage = firebase.storage();
@@ -2181,34 +2181,49 @@ if (firebaseConfigSaveButton) {
       });
     }
 
-    if (googleSignInButton) {
-      googleSignInButton.addEventListener('click', async () => {
-        if (!firebaseAuth) {
-          updateAuthUI('Firebaseが初期化されていません。設定を確認してください。');
-          return;
-        }
-        authActionInFlight = true;
-        updateAuthUI();
-        try {
-          const provider = firebaseGoogleProvider || new firebase.auth.GoogleAuthProvider();
-          provider.setCustomParameters({ prompt: 'select_account' });
-          const result = await firebaseAuth.signInWithPopup(provider);
-          const user = result?.user;
-          firebaseAuthError = null;
-          if (user && firebaseStatus) {
-            firebaseStatus.textContent = `Googleでサインインしました（${shortUid(user.uid)}）`;
-          }
-        } catch (error) {
-          firebaseAuthError = error;
-          if (firebaseStatus) {
-            firebaseStatus.textContent = `Googleサインインに失敗しました: ${error.message}`;
-          }
-        } finally {
-          authActionInFlight = false;
-          updateAuthUI();
-        }
-      });
+if (googleSignInButton) {
+  googleSignInButton.addEventListener('click', async () => {
+    if (!firebaseAuth) {
+      updateAuthUI('Firebaseが初期化されていません。設定を確認してください。');
+      return;
     }
+    authActionInFlight = true;
+    updateAuthUI();
+    try {
+      const provider = firebaseGoogleProvider || new firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+
+      // まずはポップアップ
+      await firebaseAuth.signInWithPopup(provider);
+      firebaseAuthError = null;
+      if (firebaseStatus) firebaseStatus.textContent = 'Googleでサインインしました。';
+    } catch (error) {
+      // ポップアップがブロック/閉じられた等はリダイレクトに自動切替
+      const popupIssues = [
+        'auth/popup-blocked',
+        'auth/popup-closed-by-user',
+        'auth/cancelled-popup-request'
+      ];
+      if (popupIssues.includes(error?.code)) {
+        if (firebaseStatus) firebaseStatus.textContent = 'ポップアップが使えないため、リダイレクトでサインインします…';
+        try {
+          await firebaseAuth.signInWithRedirect(provider);
+          return; // ここからブラウザが遷移
+        } catch (redirectErr) {
+          firebaseAuthError = redirectErr;
+          if (firebaseStatus) firebaseStatus.textContent = `Googleサインインに失敗しました: ${redirectErr.message}`;
+        }
+      } else {
+        firebaseAuthError = error;
+        if (firebaseStatus) firebaseStatus.textContent = `Googleサインインに失敗しました: ${error.message}`;
+      }
+    } finally {
+      authActionInFlight = false;
+      updateAuthUI();
+    }
+  });
+}
+
 
     if (signOutButton) {
       signOutButton.addEventListener('click', async () => {
