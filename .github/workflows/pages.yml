@@ -20,11 +20,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (with private submodules)
-        uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          token: ${{ secrets.SUBMODULE_TOKEN }}
+- name: Checkout (no submodules)
+  uses: actions/checkout@v4
+  with:
+    submodules: 'false'   # ← サブモジュールに一切触らない
+    fetch-depth: 1
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
