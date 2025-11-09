@@ -181,6 +181,64 @@
     .flex-row .field {
       flex: 1 1 160px;
     }
+    .dialogue-section {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .dialogue-header p {
+      margin: 0.25rem 0 0;
+      font-size: 0.9rem;
+      color: rgba(31, 31, 31, 0.7);
+    }
+
+    .dialogue-header h3 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    body.dark .dialogue-header p {
+      color: rgba(245, 245, 247, 0.7);
+    }
+
+    .dialogue-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .dialogue-row {
+      border: 1px solid rgba(31, 31, 31, 0.12);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    body.dark .dialogue-row {
+      border-color: rgba(245, 245, 247, 0.16);
+      background: rgba(44, 44, 46, 0.75);
+    }
+
+    .dialogue-row .flex-row {
+      gap: 0.75rem;
+    }
+
+    .dialogue-row textarea {
+      min-height: 90px;
+    }
+
+    .dialogue-row-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .dialogue-row-actions .danger {
+      padding-inline: 1rem;
+    }
 
     pre#quest-preview {
       background: rgba(0, 0, 0, 0.75);
@@ -226,8 +284,8 @@
 <body>
   <header>
     <h1>DramaBirthQuest Web Uploader</h1>
-    <p>3DAdventureのクエストをウェブ上で設計・生成し、MapKit上の位置とともにアップロードできます。<br>
-      OpenAI Atlasで自動生成したシナリオをもとにチームメンバーと共有しましょう。</p>
+    <p>3DAdventureのクエストをウェブ上で設計し、Swiftアプリのクエスト作成画面と同じ構成でシナリオを組み立てられます。<br>
+      MapKitで配置したロケーション情報と合わせてアップロードまたはJSONとしてエクスポートしましょう。</p>
   </header>
 
   <main>
@@ -265,59 +323,28 @@
       <label for="quest-title">タイトル</label>
       <input id="quest-title" type="text" placeholder="例: 失われた記憶のかけら">
 
-      <label for="quest-summary">概要</label>
-      <textarea id="quest-summary" placeholder="クエストの背景と目的を入力してください"></textarea>
-
-      <label for="quest-objectives">目的 (箇条書き可)</label>
-      <textarea id="quest-objectives" placeholder="1. ...
-2. ..."></textarea>
-
-      <label for="quest-difficulty">難易度</label>
-      <select id="quest-difficulty">
-        <option value="easy">Easy</option>
-        <option value="normal" selected>Normal</option>
-        <option value="hard">Hard</option>
-        <option value="epic">Epic</option>
-      </select>
-
-      <label for="quest-rewards">報酬</label>
-      <textarea id="quest-rewards" placeholder="経験値: 500
-ゴールド: 200
-アイテム: ..."></textarea>
-
-      <label for="quest-triggers">トリガー条件</label>
-      <textarea id="quest-triggers" placeholder="プレイヤーが◯◯に到着した時 ..."></textarea>
-
-      <label for="quest-notes">共有メモ (任意)</label>
-      <textarea id="quest-notes" placeholder="チームメモやQA注意点など"></textarea>
-    </section>
-
-    <section class="card" aria-labelledby="atlas-auto">
-      <h2 id="atlas-auto">OpenAI Atlas 自動生成</h2>
-      <p>Atlasにクエスト生成を依頼する場合はAPIキーを入力してください。緯度経度が設定されていると、その場所にちなんだストーリーが生成されます。</p>
-      <label for="openai-api-key">OpenAI API Key</label>
-      <input id="openai-api-key" type="text" placeholder="sk-...">
-
-      <label for="atlas-directive">追加プロンプト (任意)</label>
-      <textarea id="atlas-directive" placeholder="例: プレイヤーは音楽家。クエストは桜の季節の東京駅周辺で行う。"></textarea>
-
-      <div class="button-row">
-        <button class="primary" type="button" id="generate-quest">Atlasでクエストを生成</button>
-        <button class="secondary" type="button" id="clear-form">入力をクリア</button>
+      <div class="dialogue-section">
+        <div class="dialogue-header">
+          <h3>セリフ &amp; キャラクター配置</h3>
+          <p>Swiftアプリの「キャラ配置」UIと同じく、キャラクターを左・中央・右のいずれかに配置し、セリフを設定します。</p>
+        </div>
+        <div id="dialogue-list" class="dialogue-list" role="list"></div>
+        <div class="button-row">
+          <button class="secondary" type="button" id="add-dialogue">セリフを追加</button>
+          <button class="secondary" type="button" id="clear-form">シナリオをクリア</button>
+        </div>
       </div>
 
-      <label for="quest-preview">生成/アップロード内容プレビュー</label>
+      <label for="quest-preview">JSONプレビュー</label>
       <pre id="quest-preview" aria-live="polite">{
   "title": "",
-  "summary": "",
-  "objectives": [],
+"script": [],
   "location": {
     "latitude": null,
     "longitude": null,
     "radius": 500
   }
 }</pre>
-      <p class="log" id="atlas-log">Atlasのレスポンスやエラーがここに表示されます。</p>
     </section>
 
     <section class="card" aria-labelledby="upload-section">
@@ -347,11 +374,10 @@
       map: null,
       marker: null,
       selectedCoordinate: null,
-      atlasController: new AbortController()
+      dialogueCounter: 0
     };
 
     const mapLog = document.getElementById('map-log');
-    const atlasLog = document.getElementById('atlas-log');
     const uploadLog = document.getElementById('upload-log');
     const questPreview = document.getElementById('quest-preview');
 
@@ -360,14 +386,141 @@
     const radiusInput = document.getElementById('regionRadius');
 
     const questFields = {
-      title: document.getElementById('quest-title'),
-      summary: document.getElementById('quest-summary'),
-      objectives: document.getElementById('quest-objectives'),
-      difficulty: document.getElementById('quest-difficulty'),
-      rewards: document.getElementById('quest-rewards'),
-      triggers: document.getElementById('quest-triggers'),
-      notes: document.getElementById('quest-notes')
+title: document.getElementById('quest-title')
     };
+    const dialogueList = document.getElementById('dialogue-list');
+    const addDialogueButton = document.getElementById('add-dialogue');
+
+    function createDialogueRow(data = {}) {
+      state.dialogueCounter += 1;
+      const row = document.createElement('div');
+      row.className = 'dialogue-row';
+      row.setAttribute('role', 'listitem');
+
+      const charId = `dialogue-character-${state.dialogueCounter}`;
+      const posId = `dialogue-position-${state.dialogueCounter}`;
+      const lineId = `dialogue-line-${state.dialogueCounter}`;
+
+      const flex = document.createElement('div');
+      flex.className = 'flex-row';
+
+      const charField = document.createElement('div');
+      charField.className = 'field';
+      const charLabel = document.createElement('label');
+      charLabel.setAttribute('for', charId);
+      charLabel.textContent = 'キャラクター名';
+      const charInput = document.createElement('input');
+      charInput.type = 'text';
+      charInput.id = charId;
+      charInput.placeholder = '例: リナ';
+      charInput.classList.add('dialogue-character');
+      charField.appendChild(charLabel);
+      charField.appendChild(charInput);
+
+      const posField = document.createElement('div');
+      posField.className = 'field';
+      const posLabel = document.createElement('label');
+      posLabel.setAttribute('for', posId);
+      posLabel.textContent = '配置';
+      const posSelect = document.createElement('select');
+      posSelect.id = posId;
+      posSelect.classList.add('dialogue-position');
+      [
+        { value: 'left', label: '左' },
+        { value: 'center', label: '中央' },
+        { value: 'right', label: '右' }
+      ].forEach(option => {
+        const opt = document.createElement('option');
+        opt.value = option.value;
+        opt.textContent = option.label;
+        posSelect.appendChild(opt);
+      });
+      posField.appendChild(posLabel);
+      posField.appendChild(posSelect);
+
+      flex.appendChild(charField);
+      flex.appendChild(posField);
+
+      const lineLabel = document.createElement('label');
+      lineLabel.setAttribute('for', lineId);
+      lineLabel.textContent = 'セリフ';
+      const lineTextarea = document.createElement('textarea');
+      lineTextarea.id = lineId;
+      lineTextarea.placeholder = 'キャラクターのセリフを入力';
+      lineTextarea.classList.add('dialogue-line');
+
+      const actions = document.createElement('div');
+      actions.className = 'dialogue-row-actions';
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.classList.add('danger');
+      removeButton.textContent = 'このセリフを削除';
+      actions.appendChild(removeButton);
+
+      row.appendChild(flex);
+      row.appendChild(lineLabel);
+      row.appendChild(lineTextarea);
+      row.appendChild(actions);
+      dialogueList.appendChild(row);
+
+      const applyData = () => {
+        charInput.value = data.character || '';
+        posSelect.value = data.position || 'center';
+        lineTextarea.value = data.dialogue || '';
+      };
+      applyData();
+
+      const handleChange = () => {
+        if (state.marker && state.map && typeof mapkit !== 'undefined') {
+          state.marker.title = questFields.title.value || 'クエストポイント';
+        }
+        renderQuestPreview();
+      };
+
+      charInput.addEventListener('input', handleChange);
+      posSelect.addEventListener('change', handleChange);
+      lineTextarea.addEventListener('input', handleChange);
+
+      removeButton.addEventListener('click', () => {
+        if (dialogueList.childElementCount <= 1) {
+          charInput.value = '';
+          posSelect.value = 'center';
+          lineTextarea.value = '';
+        } else {
+          dialogueList.removeChild(row);
+        }
+        renderQuestPreview();
+      });
+
+      renderQuestPreview();
+      return row;
+    }
+
+    function readDialogueRows(includeIncomplete = true) {
+      const rows = Array.from(dialogueList.querySelectorAll('.dialogue-row')).map(row => {
+        const character = row.querySelector('.dialogue-character')?.value.trim() || '';
+        const position = row.querySelector('.dialogue-position')?.value || 'center';
+        const dialogue = row.querySelector('.dialogue-line')?.value.trim() || '';
+        return { character, position, dialogue };
+      });
+      return includeIncomplete ?
+        rows.filter(entry => entry.character || entry.dialogue) :
+        rows.filter(entry => entry.character && entry.dialogue);
+    }
+
+    function resetDialogues() {
+      dialogueList.innerHTML = '';
+      state.dialogueCounter = 0;
+      createDialogueRow();
+    }
+
+    addDialogueButton.addEventListener('click', () => {
+      const row = createDialogueRow();
+      const input = row.querySelector('.dialogue-character');
+      if (input) {
+        input.focus();
+      }
+    });
 
     document.getElementById('toggle-theme').addEventListener('click', () => {
       document.body.classList.toggle('dark');
@@ -472,161 +625,21 @@
     });
 
     Object.values(questFields).forEach(field => {
-        field.addEventListener('input', () => {
-          if (state.marker && state.map && typeof mapkit !== 'undefined') {
-            state.marker.title = questFields.title.value || 'クエストポイント';
-          }
-          renderQuestPreview();
-        });
+      field.addEventListener('input', () => {
+        if (state.marker && state.map && typeof mapkit !== 'undefined') {
+          state.marker.title = questFields.title.value || 'クエストポイント';
+        }
+
+        renderQuestPreview();
+      });
     });
 
-    document.getElementById('generate-quest').addEventListener('click', async () => {
-      const apiKey = document.getElementById('openai-api-key').value.trim();
-      if (!apiKey) {
-        atlasLog.textContent = 'OpenAI APIキーが入力されていません。Atlasのリクエストを送信できません。';
-        return;
-      }
 
-      const coordinate = state.selectedCoordinate;
-      if (!coordinate) {
-        atlasLog.textContent = 'マップでクエスト位置を指定してください。';
-        return;
-      }
-
-      atlasLog.textContent = 'Atlasにクエスト生成をリクエストしています...';
-
-      const directive = document.getElementById('atlas-directive').value.trim();
-      const payload = buildAtlasPayload(coordinate, directive);
-
-      try {
-        state.atlasController.abort();
-      } catch (_) {
-        /* noop */
-      }
-      state.atlasController = new AbortController();
-
-      try {
-        const response = await fetch('https://api.openai.com/v1/responses', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify(payload),
-          signal: state.atlasController.signal
-        });
-
-        if (!response.ok) {
-          const err = await response.text();
-          throw new Error(`Atlas APIエラー: ${response.status} ${err}`);
-        }
-
-        const data = await response.json();
-        const text = extractAtlasText(data);
-        atlasLog.textContent = 'Atlasからのレスポンスを受信しました。内容をフォームへ反映します。';
-        applyQuestFromAtlas(text);
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          atlasLog.textContent = 'リクエストをキャンセルしました。';
-          return;
-        }
-        console.error(error);
-        atlasLog.textContent = `Atlasリクエストに失敗しました: ${error.message}`;
-      }
-    });
-
-    function buildAtlasPayload(coordinate, directive) {
-      const baseInstruction = `You are QuestWeaver, a designer for the 3DAdventure Swift app. Create a JSON quest payload compatible with the iOS uploader. Use the following schema:\n\n` +
-        JSON.stringify({
-          title: 'string',
-          summary: 'string',
-          objectives: ['array of strings'],
-          difficulty: 'easy|normal|hard|epic',
-          rewards: ['array of strings'],
-          triggers: ['array of strings'],
-          notes: 'string (optional)',
-          location: {
-            latitude: coordinate.latitude,
-            longitude: coordinate.longitude,
-            radius: parseFloat(radiusInput.value) || 500
-          }
-        }, null, 2) +
-        '\n\nEnsure the quest references the real-world surroundings of the coordinates. Return ONLY valid JSON.`;
-
-      const messages = [
-        {
-          role: 'system',
-          content: 'You are an expert game quest designer assisting with 3DAdventure quest uploads.'
-        },
-        {
-          role: 'user',
-          content: baseInstruction + (directive ? `\n\nAdditional direction: ${directive}` : '')
-        }
-      ];
-
-      return {
-        model: 'atlas-1',
-        input: messages,
-        max_output_tokens: 900,
-        temperature: 0.8
-      };
-    }
-
-    function extractAtlasText(data) {
-      if (data.output && Array.isArray(data.output)) {
-        return data.output.map(part => part.content || '').join('\n');
-      }
-      if (data.choices && Array.isArray(data.choices)) {
-        return data.choices.map(choice => choice.message?.content || '').join('\n');
-      }
-      return data.output_text || JSON.stringify(data, null, 2);
-    }
-
-    function applyQuestFromAtlas(text) {
-      let parsed;
-      try {
-        const start = text.indexOf('{');
-        const end = text.lastIndexOf('}');
-        if (start !== -1 && end !== -1) {
-          parsed = JSON.parse(text.slice(start, end + 1));
-        }
-      } catch (error) {
-        console.warn('Atlas JSON parse failed, fallback to raw text', error);
-      }
-
-      if (!parsed) {
-        atlasLog.textContent += '\nJSONの解析に失敗しました。レスポンスをプレビューに表示します。';
-        questPreview.textContent = text;
-        return;
-      }
-
-      questFields.title.value = parsed.title || '';
-      questFields.summary.value = parsed.summary || '';
-      questFields.objectives.value = Array.isArray(parsed.objectives) ? parsed.objectives.join('\n') : '';
-      questFields.difficulty.value = parsed.difficulty || 'normal';
-      questFields.rewards.value = Array.isArray(parsed.rewards) ? parsed.rewards.join('\n') : '';
-      questFields.triggers.value = Array.isArray(parsed.triggers) ? parsed.triggers.join('\n') : '';
-      questFields.notes.value = parsed.notes || '';
-
-      if (parsed.location) {
-        const { latitude, longitude, radius } = parsed.location;
-        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-          latitudeInput.value = latitude;
-          longitudeInput.value = longitude;
-          setQuestLocation(Number(latitude), Number(longitude));
-          if (Number.isFinite(radius)) {
-            radiusInput.value = radius;
-          }
-        }
-      }
-
-      renderQuestPreview();
-    }
 
     document.getElementById('upload-quest').addEventListener('click', async () => {
       const quest = collectQuest();
       if (!quest) {
-        uploadLog.textContent = '必須項目が不足しています。タイトル、概要、目的、位置を確認してください。';
+        uploadLog.textContent = '必須項目が不足しています。タイトル、セリフ、位置を確認してください。';
         return;
       }
 
@@ -664,7 +677,7 @@
     document.getElementById('download-quest').addEventListener('click', () => {
       const quest = collectQuest();
       if (!quest) {
-        uploadLog.textContent = '必須項目が不足しているため、ダウンロードできません。';
+        uploadLog.textContent = 'タイトル、セリフ、位置が揃っていないため、ダウンロードできません。';
         return;
       }
 
@@ -691,66 +704,67 @@
         state.map.removeAnnotation(state.marker);
         state.marker = null;
       }
+      resetDialogues();
       renderQuestPreview();
       mapLog.textContent = '位置情報がリセットされました。マップで新しい地点を選択してください。';
-      atlasLog.textContent = 'Atlasログをリセットしました。';
       uploadLog.textContent = 'アップロードログをリセットしました。';
     });
 
     document.getElementById('clear-form').addEventListener('click', () => {
       Object.values(questFields).forEach(field => field.value = '');
+            resetDialogues();
+      if (state.marker && state.map && typeof mapkit !== 'undefined') {
+        state.marker.title = 'クエストポイント';
+      }
       renderQuestPreview();
-      atlasLog.textContent = 'フォームをクリアしました。位置情報はそのままです。';
+      uploadLog.textContent = 'シナリオ入力をクリアしました。位置情報はそのままです。';
     });
 
     function collectQuest() {
-      if (!questFields.title.value.trim() || !questFields.summary.value.trim()) return null;
-      if (!questFields.objectives.value.trim()) return null;
+      const title = questFields.title.value.trim();
+      if (!title) return null;
+      const script = readDialogueRows(false);
+      if (script.length === 0) return null;
       if (!state.selectedCoordinate) return null;
-
+      const radius = Number(radiusInput.value) || 500;
+      const { latitude, longitude } = state.selectedCoordinate;
       return {
-        title: questFields.title.value.trim(),
-        summary: questFields.summary.value.trim(),
-        objectives: questFields.objectives.value.split('\n').map(line => line.trim()).filter(Boolean),
-        difficulty: questFields.difficulty.value,
-        rewards: questFields.rewards.value.split('\n').map(line => line.trim()).filter(Boolean),
-        triggers: questFields.triggers.value.split('\n').map(line => line.trim()).filter(Boolean),
-        notes: questFields.notes.value.trim() || undefined,
+        title,
+        script,
         location: {
-          latitude: Number(latitudeInput.value),
-          longitude: Number(longitudeInput.value),
-          radius: Number(radiusInput.value) || 500
+          latitude,
+          longitude,
+          radius
         }
       };
     }
 
     function renderQuestPreview() {
       const quest = collectQuest();
-      if (!quest) {
-        questPreview.textContent = JSON.stringify({
-          title: questFields.title.value.trim(),
-          summary: questFields.summary.value.trim(),
-          objectives: questFields.objectives.value.split('\n').map(line => line.trim()).filter(Boolean),
-          difficulty: questFields.difficulty.value,
-          rewards: questFields.rewards.value.split('\n').map(line => line.trim()).filter(Boolean),
-          triggers: questFields.triggers.value.split('\n').map(line => line.trim()).filter(Boolean),
-          notes: questFields.notes.value.trim() || undefined,
-          location: state.selectedCoordinate ? {
-            latitude: Number(latitudeInput.value),
-            longitude: Number(longitudeInput.value),
-            radius: Number(radiusInput.value) || 500
-          } : {
-            latitude: null,
-            longitude: null,
-            radius: Number(radiusInput.value) || 500
-          }
-        }, null, 2);
+      if (quest) {
+        questPreview.textContent = JSON.stringify(quest, null, 2);
         return;
       }
 
-      questPreview.textContent = JSON.stringify(quest, null, 2);
-    }
+      const radius = Number(radiusInput.value) || 500;
+      const fallback = {
+        title: questFields.title.value.trim(),
+        script: readDialogueRows(true),
+        location: state.selectedCoordinate ? {
+          latitude: state.selectedCoordinate.latitude,
+          longitude: state.selectedCoordinate.longitude,
+          radius
+        } : {
+          latitude: null,
+          longitude: null,
+          radius
+        }
+      };
 
+      questPreview.textContent = JSON.stringify(fallback, null, 2);
+    }
+    
+resetDialogues();
     renderQuestPreview();
   </script>
 </body>
