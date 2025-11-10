@@ -190,6 +190,28 @@
       box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
     }
     
+    .auth-panel {
+      border: 1px solid rgba(31, 31, 31, 0.12);
+      border-radius: 14px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    body.dark .auth-panel {
+      border-color: rgba(245, 245, 247, 0.2);
+      background: rgba(44, 44, 46, 0.45);
+    }
+
+    .auth-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    
     .asset-library {
       border: 1px solid rgba(31, 31, 31, 0.12);
       border-radius: 14px;
@@ -493,6 +515,16 @@
       <h2 id="upload-section">アップロード &amp; エクスポート</h2>
       <p>アップロードボタンを押すと Firebase（プロジェクト: <code>poketquest-3a73d</code>）に直接保存され、iOSアプリと同じ形式でクエストが追加されます。MapKit の地点指定を行わなくても、位置情報フィールドはアプリで利用できる値が保存されます。</p>
       <p class="log" id="firebase-status">Firebaseの初期化を待機しています…</p>
+      
+      <div class="auth-panel" role="group" aria-live="polite">
+        <p class="log" id="auth-status">Googleアカウントでサインインしていません。</p>
+        <div class="auth-actions">
+          <button class="primary" type="button" id="google-sign-in">Googleでログイン</button>
+          <button class="secondary" type="button" id="google-switch" disabled>別のGoogleアカウントに切り替え</button>
+          <button class="flat" type="button" id="google-sign-out" disabled>ログアウト</button>
+        </div>
+      </div>
+
 
       <details class="config-panel">
         <summary>Firebase設定（Web APIキーを貼り付け）</summary>
@@ -504,7 +536,7 @@
           <button class="flat" type="button" id="clear-firebase-config">保存した設定を削除</button>
           <button class="flat" type="button" id="test-firebase-config">接続を再試行</button>
         </div>
-        <p class="log" id="firebase-config-log">Web用の Firebase 構成が設定されていない場合、匿名サインインに失敗します。</p>
+        <p class="log" id="firebase-config-log">Web用の Firebase 構成が設定されていない場合、Googleサインインを実行できません。</p>
       </details>
       <div class="button-row">
         <button class="primary" type="button" id="upload-quest">アップロード</button>
@@ -512,7 +544,7 @@
         <button class="danger" type="button" id="reset-all">すべてリセット</button>
       </div>
 
-      <p class="log" id="upload-log">準備が整ったら「アップロード」を押してください。</p>
+      <p class="log" id="upload-log">Googleでサインインし、必要な項目を入力したら「アップロード」を押してください。</p>
     </section>
   </main>
 
@@ -533,6 +565,10 @@
     const firebaseConfigSaveButton = document.getElementById('save-firebase-config');
     const firebaseConfigClearButton = document.getElementById('clear-firebase-config');
     const firebaseConfigTestButton = document.getElementById('test-firebase-config');
+    const authStatus = document.getElementById('auth-status');
+    const googleSignInButton = document.getElementById('google-sign-in');
+    const googleSwitchButton = document.getElementById('google-switch');
+    const googleSignOutButton = document.getElementById('google-sign-out');
     
     const latitudeInput = document.getElementById('latitude');
     const longitudeInput = document.getElementById('longitude');
@@ -583,7 +619,10 @@
     let firebaseFirestore = null;
     let firebaseStorage = null;
     let firebaseInitError = null;
-    let firebaseUserIdPreview = '';
+    let firebaseUserDisplayName = '';
+    let authProcessing = false;
+    let authErrorMessage = '';
+    let lastSignedInUid = null;
     let firebaseConfig = loadStoredFirebaseConfig();
 
     const DEFAULT_FIREBASE_CONFIG = {
@@ -677,7 +716,11 @@
       firebaseFirestore = null;
       firebaseStorage = null;
       firebaseInitError = null;
-      firebaseUserIdPreview = '';
+      firebaseUserDisplayName = '';
+      authProcessing = false;
+      authErrorMessage = '';
+      lastSignedInUid = null;
+      updateAuthUI();
     }
 
     async function reinitializeFirebase() {
@@ -686,7 +729,7 @@
     }
 
     function adminRestrictedGuidance() {
-      return 'Firebaseコンソールで Web アプリを作成し、そこで発行された Web APIキーと構成をこのページの「Firebase設定」に保存してください。あわせて匿名サインインが有効になっているか確認してください。';
+      return 'Firebaseコンソールで Web アプリを作成し、そこで発行された Web APIキーと構成をこのページの「Firebase設定」に保存してください。あわせて「Authentication &gt; サインイン方法」で Google プロバイダが有効になっているか確認してください。';
     }
     function setStage(next) {
       state.stage = next;
@@ -2179,9 +2222,157 @@
       if (!uid) return '';
       return uid.length > 12 ? `${uid.slice(0, 6)}…${uid.slice(-4)}` : uid;
     }
+    
+    function describeFirebaseUser(user) {
+      if (!user) return '';
+      const displayName = (user.displayName || '').trim();
+      if (displayName) return displayName;
+      const email = (user.email || '').trim();
+      if (email) return email;
+      return shortUid(user.uid);
+    }
+
+    function describeAuthError(error) {
+      if (!error) return '';
+      if (typeof error === 'string') return error;
+      const code = error.code || '';
+      switch (code) {
+        case 'auth/popup-blocked':
+          return 'ポップアップがブロックされました。ブラウザの設定で許可してください。';
+        case 'auth/popup-closed-by-user':
+          return 'ポップアップが閉じられたため、サインインが完了しませんでした。';
+        case 'auth/cancelled-popup-request':
+          return '別のサインイン処理が進行中です。数秒後に再試行してください。';
+        case 'auth/credential-already-in-use':
+          return 'このGoogleアカウントは既に他のユーザーに紐付いています。再度サインインを試みてください。';
+        case 'auth/operation-not-supported-in-this-environment':
+          return 'このブラウザではポップアップによるサインインがサポートされていません。別のブラウザをお試しください。';
+        default:
+          return error.message || String(error);
+      }
+    }
+
+    function updateAuthUI() {
+      if (!authStatus) return;
+      const user = firebaseAuth?.currentUser || null;
+      let message = '';
+      if (!firebaseAuth) {
+        message = 'Firebaseの初期化が完了するまでお待ちください。';
+      } else if (authProcessing) {
+        message = 'Googleアカウントに接続しています…';
+      } else if (authErrorMessage) {
+        message = `Googleサインインに失敗しました: ${authErrorMessage}`;
+      } else if (user && !user.isAnonymous) {
+        const label = describeFirebaseUser(user);
+        message = `${label} としてサインインしています。`;
+      } else if (user) {
+        message = '匿名アカウントとして接続しています。Googleでサインインしてください。';
+      } else {
+        message = 'Googleアカウントでサインインしていません。';
+      }
+
+      authStatus.textContent = message;
+
+      if (googleSignInButton) {
+        googleSignInButton.disabled = authProcessing || !firebaseAuth;
+      }
+      if (googleSwitchButton) {
+        const canSwitch = !!(firebaseAuth && user && !user.isAnonymous);
+        googleSwitchButton.disabled = authProcessing || !canSwitch;
+      }
+      if (googleSignOutButton) {
+        const canSignOut = !!(firebaseAuth && user);
+        googleSignOutButton.disabled = authProcessing || !canSignOut;
+      }
+    }
+
+    async function signInWithGoogle(options = {}) {
+      const { clearSession = false, forceAccountSelection = false } = options;
+      if (!firebaseAuth) {
+        if (firebaseStatus) {
+          firebaseStatus.textContent = 'Firebaseの初期化が完了していません。先に構成を確認してください。';
+        }
+        return;
+      }
+      if (authProcessing) return;
+
+      authErrorMessage = '';
+      authProcessing = true;
+      updateAuthUI();
+
+      try {
+        if (clearSession && firebaseAuth.currentUser) {
+          await firebaseAuth.signOut();
+        }
+
+        const provider = new firebase.auth.GoogleAuthProvider();
+        if (forceAccountSelection) {
+          provider.setCustomParameters({ prompt: 'select_account' });
+        }
+
+        const currentUser = firebaseAuth.currentUser;
+        if (currentUser && currentUser.isAnonymous && typeof currentUser.linkWithPopup === 'function') {
+          try {
+            await currentUser.linkWithPopup(provider);
+          } catch (error) {
+            if (error?.code === 'auth/credential-already-in-use') {
+              await firebaseAuth.signInWithPopup(provider);
+            } else {
+              throw error;
+            }
+          }
+        } else {
+          await firebaseAuth.signInWithPopup(provider);
+        }
+
+        if (firebaseStatus) {
+          const user = firebaseAuth.currentUser;
+          const label = describeFirebaseUser(user);
+          firebaseStatus.textContent = label
+            ? `Firebaseにサインインしました（${label}）`
+            : 'Googleアカウントにサインインしました。';
+        }
+      } catch (error) {
+        console.error('Google sign-in failed', error);
+        authErrorMessage = describeAuthError(error);
+        if (firebaseStatus) {
+          firebaseStatus.textContent = `Googleサインインに失敗しました: ${authErrorMessage}`;
+        }
+      } finally {
+        authProcessing = false;
+        updateAuthUI();
+      }
+    }
+
+    async function signOutFromFirebase() {
+      if (!firebaseAuth) return;
+      if (authProcessing) return;
+
+      authErrorMessage = '';
+      authProcessing = true;
+      updateAuthUI();
+
+      try {
+        await firebaseAuth.signOut();
+        if (firebaseStatus) {
+          firebaseStatus.textContent = 'Googleアカウントからサインアウトしました。';
+        }
+      } catch (error) {
+        console.error('Failed to sign out from Firebase', error);
+        authErrorMessage = describeAuthError(error);
+        if (firebaseStatus) {
+          firebaseStatus.textContent = `ログアウトに失敗しました: ${authErrorMessage}`;
+        }
+      } finally {
+        authProcessing = false;
+        updateAuthUI();
+      }
+    }
+
 
     function initializeFirebase() {
       if (firebaseApp || firebaseInitError) {
+        updateAuthUI();
         return;
       }
       if (typeof firebase === 'undefined') {
@@ -2189,6 +2380,7 @@
         if (firebaseStatus) {
           firebaseStatus.textContent = firebaseInitError.message;
         }
+        updateAuthUI();
         return;
       }
       try {
@@ -2197,6 +2389,7 @@
           if (firebaseStatus) {
             firebaseStatus.textContent = 'Firebase構成が未設定です。「Firebase設定」からWebアプリの構成を保存してください。';
           }
+          updateAuthUI();
           return;
         }
         if (firebaseStatus) {
@@ -2211,36 +2404,52 @@
         firebaseFirestore.settings({ ignoreUndefinedProperties: true });
         firebaseStorage = firebase.storage();
         if (firebaseStatus) {
-          firebaseStatus.textContent = 'Firebaseを初期化しました。匿名サインインを実行しています…';
+          firebaseStatus.textContent = 'Firebaseを初期化しました。Googleアカウントでサインインしてください。';
         }
+
         firebaseAuth.onAuthStateChanged(user => {
+          const previousUid = lastSignedInUid;
           if (user) {
-            firebaseUserIdPreview = shortUid(user.uid);
-            if (firebaseStatus) {
-              firebaseStatus.textContent = `Firebaseにサインインしました（${firebaseUserIdPreview}）`;
-            }
-          } else if (firebaseStatus) {
-            firebaseStatus.textContent = 'Firebaseのサインイン待機中です…';
-          }
-        });
-        firebaseAuth.signInAnonymously().catch(error => {
-          firebaseInitError = error;
-          if (firebaseStatus) {
-            firebaseStatus.textContent = `匿名サインインに失敗しました: ${error.message}`;
-                        if (error.code === 'auth/admin-restricted-operation') {
-              firebaseStatus.textContent += `\n${adminRestrictedGuidance()}`;
-            } else if (error.code === 'auth/operation-not-allowed') {
-              firebaseStatus.textContent += '\nFirebaseコンソールのAuthentication設定で匿名サインインを有効にしてください。';
-            }
-          }
-          if (firebaseConfigLog) {
-            if (error.code === 'auth/admin-restricted-operation') {
-              firebaseConfigLog.textContent = `auth/admin-restricted-operation: ${adminRestrictedGuidance()}`;
+            firebaseUserDisplayName = describeFirebaseUser(user);
+            if (!user.isAnonymous) {
+              lastSignedInUid = user.uid;
+              if (!state.authorUID || state.authorUID === 'guest' || (previousUid && state.authorUID === previousUid)) {
+                state.authorUID = user.uid;
+                renderQuestPreview();
+              }
+              if (firebaseStatus) {
+                firebaseStatus.textContent = `Firebaseにサインインしました（${firebaseUserDisplayName}）`;
+              }
             } else {
-              firebaseConfigLog.textContent = `匿名サインインに失敗しました: ${error.message}`;
+              lastSignedInUid = null;
+              if (firebaseStatus) {
+                firebaseStatus.textContent = '匿名アカウントとして接続しています。Googleでサインインしてください。';
+              }
+            }
+          } else {
+            if (previousUid && state.authorUID === previousUid) {
+              state.authorUID = 'guest';
+              renderQuestPreview();
+            }
+            firebaseUserDisplayName = '';
+            lastSignedInUid = null;
+            if (firebaseStatus) {
+              firebaseStatus.textContent = 'Firebaseのサインイン待機中です…';
             }
           }
+          authProcessing = false;
+          authErrorMessage = '';
+          updateAuthUI();
+        }, error => {
+          console.error('Auth state listener error', error);
+          authErrorMessage = describeAuthError(error);
+          if (firebaseStatus) {
+            firebaseStatus.textContent = `認証状態の監視中にエラーが発生しました: ${authErrorMessage}`;
+          }
+          updateAuthUI();
         });
+
+        updateAuthUI();
       } catch (error) {
         firebaseInitError = error;
         if (firebaseStatus) {
@@ -2252,6 +2461,7 @@
         if (firebaseConfigLog && error.code === 'auth/admin-restricted-operation') {
           firebaseConfigLog.textContent = `auth/admin-restricted-operation: ${adminRestrictedGuidance()}`;
         }
+        updateAuthUI();
       }
     }
 
@@ -2295,20 +2505,14 @@
       if (!firebaseAuth || !firebaseFirestore || !firebaseStorage) {
         throw new Error('Firebaseの初期化が完了していません。');
       }
-      if (!firebaseAuth.currentUser) {
-        try {
-          await firebaseAuth.signInAnonymously();
-        } catch (error) {
-        if (error?.code === 'auth/admin-restricted-operation') {
-            throw new Error(`匿名サインインに失敗しました: ${error.message} — ${adminRestrictedGuidance()}`);
-          }
-          if (error?.code === 'auth/operation-not-allowed') {
-            throw new Error(`匿名サインインに失敗しました: ${error.message} — FirebaseコンソールのAuthentication設定で匿名サインインを有効にしてください。`);
-          }
-          throw new Error(`匿名サインインに失敗しました: ${error.message}`);
-        }
+      const user = await waitForAuthUser();
+      if (!user) {
+        throw new Error('Firebaseのサインインが完了していません。Googleでサインインしてください。');
       }
-      return waitForAuthUser();
+      if (user.isAnonymous) {
+        throw new Error('匿名アカウントではアップロードできません。Googleアカウントでサインインしてください。');
+      }
+      return user;
     }
 
     function getRequiredAssetKeys() {
@@ -2968,6 +3172,25 @@ if (firebaseConfigSaveButton) {
     locationNameInput.addEventListener('input', renderQuestPreview);
     locationDetailInput.addEventListener('input', renderQuestPreview);
 
+    if (googleSignInButton) {
+      googleSignInButton.addEventListener('click', () => {
+        signInWithGoogle({ clearSession: false, forceAccountSelection: false });
+      });
+    }
+
+    if (googleSwitchButton) {
+      googleSwitchButton.addEventListener('click', () => {
+        signInWithGoogle({ clearSession: true, forceAccountSelection: true });
+      });
+    }
+
+    if (googleSignOutButton) {
+      googleSignOutButton.addEventListener('click', () => {
+        signOutFromFirebase();
+      });
+    }
+
+    updateAuthUI();
     updateFirebaseConfigEditor();
     initializeFirebase();
     setStage('askTitle');
