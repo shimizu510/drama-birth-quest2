@@ -445,9 +445,7 @@
   <main>
     <section class="card" aria-labelledby="mapkit-setup">
       <h2 id="mapkit-setup">MapKit 設定</h2>
-      <p>MapKit JSのJWTトークンを入力してマップを初期化してください。トークンを持っていない場合は、<a href="https://developer.apple.com/documentation/mapkitjs" target="_blank" rel="noopener">Apple Developer</a>で発行できます。</p>
-      <label for="mapkit-token">MapKit JWT</label>
-      <input id="mapkit-token" type="text" placeholder="eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9...">
+      <p>このページにはMapKit JS用のJWTトークンがあらかじめ設定されています。「Mapを初期化」を押すだけで地図が読み込まれます。</p>
       <div class="button-row">
         <button class="primary" type="button" id="mapkit-init">Mapを初期化</button>
         <button class="secondary" type="button" id="toggle-theme">ライト/ダーク切替</button>
@@ -481,7 +479,7 @@
       <input id="location-name" type="text" placeholder="例: 渋谷駅ハチ公前">
       <label for="location-detail">場所の補足 (任意)</label>
       <input id="location-detail" type="text" placeholder="例: 待ち合わせ広場付近">
-      <p class="log" id="map-log">マップが未初期化です。JWTを入力して「Mapを初期化」を押してください。</p>
+      <p class="log" id="map-log">マップが未初期化です。「Mapを初期化」を押してください。</p>
     </section>
 
     <section class="card" aria-labelledby="quest-settings">
@@ -3108,19 +3106,13 @@ if (firebaseConfigSaveButton) {
     });
 
     document.getElementById('mapkit-init').addEventListener('click', () => {
-      const token = document.getElementById('mapkit-token').value.trim();
-      if (!token) {
-        mapLog.textContent = 'JWTが入力されていません。';
-        return;
-      }
+      const token = "eyJhbGciOiJFUzI1NiIsImtpZCI6IjhDVUNIV1E1SDUiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJORDM0QzZUVFQ1IiwiaWF0IjoxNzYyODE1OTIyLCJleHAiOjE3NjI4Mzc1MjIsIm9yaWdpbiI6WyJodHRwczovL3NoaW1penU1MTAuZ2l0aHViLmlvIl0sInN1YiI6Im1hcHMuY29tLnl1amkuZGJxLndlYiJ9.cEUMDMuxNddJtUuIYU4WJk2GuE0LSGmgwXUFAOXiXc75rK-y_dpc_GtE4-W-VlVYJVUV0dO1qcrjbVgqO4X5Dg";
       if (typeof mapkit === 'undefined') {
         mapLog.textContent = 'MapKit JSが読み込まれていません。ネットワーク接続やスクリプトURLを確認してください。';
         return;
       }
       try {
-        mapkit.init({
-  authorizationCallback: done => done("eyJhbGciOiJFUzI1NiIsImtpZCI6IjhDVUNIV1E1SDUiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJORDM0QzZUVFQ1IiwiaWF0IjoxNzYyODE1OTIyLCJleHAiOjE3NjI4Mzc1MjIsIm9yaWdpbiI6WyJodHRwczovL3NoaW1penU1MTAuZ2l0aHViLmlvIl0sInN1YiI6Im1hcHMuY29tLnl1amkuZGJxLndlYiJ9.cEUMDMuxNddJtUuIYU4WJk2GuE0LSGmgwXUFAOXiXc75rK-y_dpc_GtE4-W-VlVYJVUV0dO1qcrjbVgqO4X5Dg")
-});
+        mapkit.init({ authorizationCallback: done => done(token) });
         state.map = new mapkit.Map('map', {
           colorScheme: document.body.classList.contains('dark') ? mapkit.Map.ColorSchemes.Dark : mapkit.Map.ColorSchemes.Light
         });
