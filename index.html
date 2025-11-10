@@ -774,6 +774,13 @@
     }
 
     function renderStage() {
+      const activeElement = document.activeElement;
+      const shouldRestoreFocus = activeElement && stageContainer.contains(activeElement);
+      const previousFocusId = shouldRestoreFocus ? activeElement.id : null;
+      const previousSelection = shouldRestoreFocus && 'selectionStart' in activeElement
+        ? { start: activeElement.selectionStart, end: activeElement.selectionEnd }
+        : null;
+
       stageIndicator.textContent = generateStageLabel(state.stage);
       stageContainer.innerHTML = '';
       switch (state.stage) {
@@ -827,6 +834,16 @@
       }
       renderTimeline();
       renderQuestPreview();
+      
+      if (previousFocusId) {
+        const nextFocusTarget = document.getElementById(previousFocusId);
+        if (nextFocusTarget && typeof nextFocusTarget.focus === 'function') {
+          nextFocusTarget.focus({ preventScroll: true });
+          if (previousSelection && typeof nextFocusTarget.setSelectionRange === 'function') {
+            nextFocusTarget.setSelectionRange(previousSelection.start, previousSelection.end);
+          }
+        }
+      }
     }
 
     function createElement(tag, options = {}) {
