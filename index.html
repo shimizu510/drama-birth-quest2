@@ -611,6 +611,8 @@
         }
       }
     };
+    
+    let isTitleComposing = false;
 
     const FIREBASE_CONFIG_STORAGE_KEY = 'dbq-firebase-config';
 
@@ -869,9 +871,20 @@
     function renderAskTitle() {
       const titleLabel = createElement('label', { htmlFor: 'quest-title-input', textContent: 'クエストタイトル' });
       const titleInput = createElement('input', { type: 'text', id: 'quest-title-input', value: state.title, placeholder: '例: 失われた記憶のかけら' });
-      titleInput.addEventListener('input', () => {
+      titleInput.addEventListener('compositionstart', () => {
+        isTitleComposing = true;
+      });
+      titleInput.addEventListener('compositionend', () => {
+        isTitleComposing = false;
         state.title = titleInput.value;
         renderQuestPreview();
+      });
+      titleInput.addEventListener('input', event => {
+        state.title = titleInput.value;
+        renderQuestPreview();
+        if (event.isComposing || isTitleComposing) {
+          return;
+        }
         renderStage();
       });
 
