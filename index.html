@@ -1137,8 +1137,13 @@
       const textarea = createElement('textarea');
       textarea.value = state.textDraft.text || '';
       textarea.placeholder = isNarration ? '例: こうして冒険は始まった。' : '例: さあ、行こう！';
+      let addButton;
+      
       textarea.addEventListener('input', () => {
         state.textDraft.text = textarea.value;
+        if (addButton) {
+          addButton.disabled = !(textarea.value || '').trim();
+        }
       });
 
       const actions = createElement('div', { className: 'stage-actions' });
@@ -1148,7 +1153,7 @@
         setStage('menu');
       });
 
-      const addButton = createElement('button', { className: 'primary', type: 'button', textContent: '文章を追加' });
+      addButton = createElement('button', { className: 'primary', type: 'button', textContent: '文章を追加' });
       addButton.disabled = !(state.textDraft.text || '').trim();
       addButton.addEventListener('click', () => {
         if (!(state.textDraft.text || '').trim()) {
