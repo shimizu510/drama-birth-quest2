@@ -871,6 +871,12 @@
     function renderAskTitle() {
       const titleLabel = createElement('label', { htmlFor: 'quest-title-input', textContent: 'クエストタイトル' });
       const titleInput = createElement('input', { type: 'text', id: 'quest-title-input', value: state.title, placeholder: '例: 失われた記憶のかけら' });
+      let nextButton;
+      const updateNextButtonState = () => {
+        if (nextButton) {
+          nextButton.disabled = !state.title.trim();
+        }
+      };
       titleInput.addEventListener('compositionstart', () => {
         isTitleComposing = true;
       });
@@ -878,15 +884,21 @@
         isTitleComposing = false;
         state.title = titleInput.value;
         renderQuestPreview();
-        renderStage();
+        updateNextButtonState();
       });
-      titleInput.addEventListener('input', event => {
+      titleInput.addEventListener('input', () => {
         state.title = titleInput.value;
         renderQuestPreview();
-        if (event.isComposing || isTitleComposing) {
-          return;
+        updateNextButtonState();
+      });
+      titleInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !event.isComposing && !isTitleComposing) {
+          event.preventDefault();
+          updateNextButtonState();
+          if (!nextButton?.disabled) {
+            setStage('askBackground');
+          }
         }
-        renderStage();
       });
 
       const authorLabel = createElement('label', { htmlFor: 'quest-author-input', textContent: '作者UID (未ログインの場合は guest)' });
@@ -897,8 +909,8 @@
       });
 
       const actions = createElement('div', { className: 'stage-actions' });
-      const nextButton = createElement('button', { className: 'primary', type: 'button', textContent: '次へ（背景を決める）' });
-      nextButton.disabled = !state.title.trim();
+      nextButton = createElement('button', { className: 'primary', type: 'button', textContent: '次へ（背景を決める）' });
+      updateNextButtonState();
       nextButton.addEventListener('click', () => setStage('askBackground'));
       actions.appendChild(nextButton);
 
