@@ -188,6 +188,78 @@
       transform: translateY(-1px);
       box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
     }
+    
+    .asset-library {
+      border: 1px solid rgba(31, 31, 31, 0.12);
+      border-radius: 14px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    body.dark .asset-library {
+      border-color: rgba(245, 245, 247, 0.2);
+      background: rgba(44, 44, 46, 0.45);
+    }
+
+    .asset-library-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .asset-library-header-title {
+      font-weight: 600;
+    }
+
+    .asset-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .asset-thumb {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem;
+      border-radius: 12px;
+      background: rgba(108, 76, 255, 0.08);
+      border: 2px solid transparent;
+      transition: border 0.2s ease, background 0.2s ease;
+    }
+
+    .asset-thumb img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: contain;
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 10px;
+    }
+
+    .asset-thumb-label {
+      font-size: 0.8rem;
+      text-align: center;
+      word-break: break-all;
+    }
+
+    .asset-thumb.selected {
+      border-color: var(--accent);
+      background: rgba(108, 76, 255, 0.18);
+    }
+
+    body.dark .asset-thumb {
+      background: rgba(108, 76, 255, 0.16);
+    }
+
+    body.dark .asset-thumb.selected {
+      background: rgba(108, 76, 255, 0.28);
+    }
+
 
     details.config-panel {
       border-radius: 12px;
@@ -478,7 +550,16 @@
       charDraft: {},
       pendingBackgroundChange: null,
       tempSlot: null,
-      locationChoice: { mode: 'everywhere', name: '', detail: '' }
+      locationChoice: { mode: 'everywhere', name: '', detail: '' },
+      libraries: {
+        characters: {
+          loading: false,
+          loaded: false,
+          error: '',
+          items: [],
+          promise: null
+        }
+      }
     };
 
     const FIREBASE_CONFIG_STORAGE_KEY = 'dbq-firebase-config';
@@ -865,23 +946,114 @@
 
       const sourceLabel = createElement('label', { textContent: '画像の指定方法' });
       const sourceSelect = createElement('select');
-      ['upload', 'url'].forEach(value => {
-        const option = createElement('option', { value, textContent: value === 'upload' ? '画像をアップロード' : '画像URLを入力' });
-        if (!state.charDraft.source && value === 'upload') {
-          state.charDraft.source = 'upload';
-        }
+      if (state.charDraft.source === 'url') {
+        state.charDraft.source = 'library';
+      }
+      const allowedSources = new Set(['upload', 'library']);
+      if (!state.charDraft.source || !allowedSources.has(state.charDraft.source)) {
+        state.charDraft.source = 'upload';
+      }
+      [['upload', '画像をアップロード'], ['library', 'アップロード済みから選択']].forEach(([value, label]) => {
+        const option = createElement('option', { value, textContent: label });
         if (state.charDraft.source === value) option.selected = true;
         sourceSelect.appendChild(option);
       });
 
       const fileLabel = createElement('label', { htmlFor: 'char-image-file', textContent: 'キャラクター画像' });
       const fileInput = createElement('input', { type: 'file', id: 'char-image-file', accept: 'image/*' });
-      fileLabel.style.display = sourceSelect.value === 'upload' ? 'block' : 'none';
-      fileInput.style.display = sourceSelect.value === 'upload' ? 'block' : 'none';
+      const useUpload = sourceSelect.value === 'upload';
+      fileLabel.style.display = useUpload ? 'block' : 'none';
+      fileInput.style.display = useUpload ? 'block' : 'none';
 
-      const urlLabel = createElement('label', { htmlFor: 'char-image-url', textContent: '画像URL' });
-      const urlInput = createElement('input', { type: 'url', id: 'char-image-url', placeholder: 'https://example.com/character.png', value: state.charDraft.assetURL || '' });
-      urlLabel.style.display = urlInput.style.display = sourceSelect.value === 'url' ? 'block' : 'none';
+      let libraryContainer = null;
+      if (sourceSelect.value === 'library') {
+        libraryContainer = createElement('div', { className: 'asset-library' });
+
+        const renderLibrary = () => {
+          const libraryState = state.libraries.characters;
+          libraryContainer.innerHTML = '';
+
+          const header = createElement('div', { className: 'asset-library-header' });
+          const title = createElement('span', { className: 'asset-library-header-title', textContent: 'アップロード済みのキャラクター画像' });
+          header.appendChild(title);
+
+          const refreshButton = createElement('button', {
+            className: 'flat',
+            type: 'button',
+            textContent: libraryState.loading ? '読み込み中…' : '再読み込み'
+          });
+          refreshButton.disabled = libraryState.loading;
+          refreshButton.addEventListener('click', async () => {
+            try {
+              await loadCharacterLibrary(true);
+            } catch (error) {
+              console.error('Failed to refresh character library', error);
+            } finally {
+              if (state.stage === 'addCharacter' && (state.charDraft.source || 'upload') === 'library') {
+                renderStage();
+              }
+            }
+          });
+          header.appendChild(refreshButton);
+          libraryContainer.appendChild(header);
+
+          if (libraryState.error) {
+            const errorMessage = createElement('p', { className: 'log', textContent: `読み込みエラー: ${libraryState.error}` });
+            libraryContainer.appendChild(errorMessage);
+            return;
+          }
+
+          if (libraryState.loading && libraryState.items.length === 0) {
+            const loadingMessage = createElement('p', { className: 'log', textContent: 'キャラクター画像を読み込み中です…' });
+            libraryContainer.appendChild(loadingMessage);
+            return;
+          }
+
+          if (libraryState.items.length === 0) {
+            const emptyMessage = createElement('p', { className: 'log', textContent: 'まだ利用可能なキャラクター画像がありません。' });
+            libraryContainer.appendChild(emptyMessage);
+            return;
+          }
+
+          const grid = createElement('div', { className: 'asset-grid' });
+          libraryState.items.forEach(item => {
+            const button = createElement('button', { className: 'asset-thumb', type: 'button' });
+            if (state.charDraft.libraryPath === item.fullPath || (!state.charDraft.libraryPath && state.charDraft.assetURL === item.url)) {
+              button.classList.add('selected');
+            }
+            const image = document.createElement('img');
+            image.src = item.url;
+            image.alt = item.name;
+            image.loading = 'lazy';
+            const label = createElement('span', { className: 'asset-thumb-label', textContent: item.name });
+            button.append(image, label);
+            button.addEventListener('click', () => {
+              state.charDraft.assetKey = null;
+              state.charDraft.assetURL = item.url;
+              state.charDraft.libraryPath = item.fullPath;
+              state.charDraft.source = 'library';
+              renderStage();
+            });
+            grid.appendChild(button);
+          });
+          libraryContainer.appendChild(grid);
+        };
+
+        renderLibrary();
+
+        if (!state.libraries.characters.loaded && !state.libraries.characters.loading) {
+          loadCharacterLibrary().then(() => {
+            if (state.stage === 'addCharacter' && (state.charDraft.source || 'upload') === 'library') {
+              renderStage();
+            }
+          }).catch(error => {
+            console.error('Failed to load character library', error);
+            if (state.stage === 'addCharacter' && (state.charDraft.source || 'upload') === 'library') {
+              renderStage();
+            }
+          });
+        }
+      }
 
       const positionLabel = createElement('label', { textContent: '配置位置' });
       const positionSelect = createElement('select');
@@ -910,12 +1082,14 @@
 
       sourceSelect.addEventListener('change', () => {
         state.charDraft.source = sourceSelect.value;
+        if (state.charDraft.source === 'library') {
+          state.charDraft.assetKey = null;
+        } else if (state.charDraft.source === 'upload') {
+          state.charDraft.libraryPath = null;
+        }
         renderStage();
       });
 
-      urlInput.addEventListener('input', () => {
-        state.charDraft.assetURL = urlInput.value.trim();
-      });
 
       positionSelect.addEventListener('change', () => {
         state.charDraft.slot = positionSelect.value;
@@ -948,7 +1122,8 @@
           }
           let assetKey = null;
           let assetURL = '';
-          if ((state.charDraft.source || 'upload') === 'upload') {
+          const source = state.charDraft.source || 'upload';
+          if (source === 'upload') {
             const file = fileInput.files?.[0];
             if (!file) {
               alert('キャラクター画像を選択してください。');
@@ -956,12 +1131,17 @@
             }
             const dataUrl = await fileToDataURL(file);
             assetKey = storeAsset(dataUrl, 'character', file.name);
-          } else {
-            if (!urlInput.value.trim()) {
-              alert('画像URLを入力してください。');
+          } else if (source === 'library') {
+            const selected = (state.charDraft.assetURL || '').trim();
+            if (!selected) {
+              alert('アップロード済みのキャラクター画像を選択してください。');
               return;
             }
-            assetURL = urlInput.value.trim();
+            assetURL = selected;
+            assetKey = null;
+          } else {
+            alert('キャラクター画像の指定方法を選択してください。');
+            return;
           }
 
           const op = {
@@ -983,7 +1163,12 @@
 
       actions.append(cancelButton, addButton);
 
-      stageContainer.append(info, sourceLabel, sourceSelect, fileLabel, fileInput, urlLabel, urlInput, positionLabel, positionSelect, scaleLabel, scaleInput, animLabel, animSelect, actions);
+      const children = [info, sourceLabel, sourceSelect, fileLabel, fileInput];
+      if (libraryContainer) {
+        children.push(libraryContainer);
+      }
+      children.push(positionLabel, positionSelect, scaleLabel, scaleInput, animLabel, animSelect, actions);
+      stageContainer.append(...children);
     }
 
     function renderRemoveCharacter() {
@@ -1880,10 +2065,76 @@
             }
           }
         );
-      const fileName = `${key}-${Date.now().toString(36)}.${extension}`;
-      const ref = firebaseStorage.ref().child(`${folder}/${fileName}`);
       });
     }
+    
+    async function loadCharacterLibrary(forceRefresh = false) {
+      const library = state.libraries?.characters;
+      if (!library) return [];
+      if (library.loading && library.promise) {
+        return library.promise;
+      }
+      if (library.loaded && !forceRefresh) {
+        return library.items;
+      }
+      if (forceRefresh) {
+        library.loaded = false;
+        library.items = [];
+      }
+      library.error = '';
+      library.loading = true;
+
+      const task = (async () => {
+        try {
+          await ensureFirebaseReadyForUpload();
+          if (!firebaseStorage) {
+            throw new Error('Firebase Storage が利用できません。');
+          }
+          const folder = storageFolderForKind('character');
+          const folderRef = firebaseStorage.ref().child(folder);
+          const refs = await listAllStorageItems(folderRef);
+          const items = [];
+          for (const ref of refs) {
+            try {
+              const url = await ref.getDownloadURL();
+              items.push({ name: ref.name, fullPath: ref.fullPath, url });
+            } catch (error) {
+              console.warn('Failed to get download URL for character asset', ref.fullPath, error);
+            }
+          }
+          items.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+          library.items = items;
+          library.loaded = true;
+          library.error = '';
+          return items;
+        } catch (error) {
+          library.error = error?.message || String(error);
+          library.loaded = false;
+          throw error;
+        }
+      })().finally(() => {
+        library.loading = false;
+        library.promise = null;
+      });
+
+      library.promise = task;
+      return task;
+    }
+
+    async function listAllStorageItems(folderRef) {
+      const result = await folderRef.listAll();
+      const items = [...result.items];
+      for (const prefix of result.prefixes) {
+        try {
+          const nested = await listAllStorageItems(prefix);
+          items.push(...nested);
+        } catch (error) {
+          console.warn('Failed to list storage prefix', prefix.fullPath, error);
+        }
+      }
+      return items;
+    }
+
 
     async function prepareAssetForUpload(asset) {
       const image = await loadImageFromDataUrl(asset.dataUrl);
