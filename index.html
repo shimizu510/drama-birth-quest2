@@ -10,6 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
   <style>
     :root {
       color-scheme: light dark;
@@ -239,6 +240,12 @@
       object-fit: contain;
       background: rgba(0, 0, 0, 0.06);
       border-radius: 10px;
+    }
+    
+    .asset-thumb img.asset-thumb-loading {
+      opacity: 0.55;
+      filter: saturate(0.4) blur(0.5px);
+      transition: opacity 0.2s ease;
     }
 
     .asset-thumb-label {
@@ -905,9 +912,7 @@
               button.classList.add('selected');
             }
             const image = document.createElement('img');
-            image.src = item.url;
-            image.alt = item.name;
-            image.loading = 'lazy';
+            applyLibraryThumbnail(image, item);
             const label = createElement('span', { className: 'asset-thumb-label', textContent: item.name });
             button.append(image, label);
             button.addEventListener('click', () => {
@@ -1147,9 +1152,7 @@
               button.classList.add('selected');
             }
             const image = document.createElement('img');
-            image.src = item.url;
-            image.alt = item.name;
-            image.loading = 'lazy';
+            applyLibraryThumbnail(image, item);
             const label = createElement('span', { className: 'asset-thumb-label', textContent: item.name });
             button.append(image, label);
             button.addEventListener('click', () => {
@@ -1590,9 +1593,7 @@
               button.classList.add('selected');
             }
             const image = document.createElement('img');
-            image.src = item.url;
-            image.alt = item.name;
-            image.loading = 'lazy';
+            applyLibraryThumbnail(image, item);
             const label = createElement('span', { className: 'asset-thumb-label', textContent: item.name });
             button.append(image, label);
             button.addEventListener('click', () => {
@@ -1873,6 +1874,92 @@
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(file);
       });
+    }
+    
+    function blobToDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error('データURLへの変換に失敗しました。'));
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function isHeicLikeFile(name = '') {
+      return /\.hei[cf]$/i.test(name.trim());
+    }
+
+    async function ensureLibraryPreviewURL(item) {
+      if (!item) return '';
+      if (!isHeicLikeFile(item.name)) {
+        item.previewUrl = item.url;
+        return item.url;
+      }
+      if (item.previewUrl) {
+        return item.previewUrl;
+      }
+      if (item.previewPromise) {
+        return item.previewPromise;
+      }
+
+      const task = (async () => {
+        if (typeof heic2any !== 'function') {
+          throw new Error('HEIC変換ライブラリが利用できません。');
+        }
+        const response = await fetch(item.url);
+        if (!response.ok) {
+          throw new Error(`HEIC画像の取得に失敗しました: ${response.status}`);
+        }
+        const heicBlob = await response.blob();
+        const converted = await heic2any({ blob: heicBlob, toType: 'image/png', quality: 0.92 });
+        const outputBlob = Array.isArray(converted) ? converted[0] : converted;
+        if (!(outputBlob instanceof Blob)) {
+          throw new Error('HEIC画像の変換結果を読み取れませんでした。');
+        }
+        const dataUrl = await blobToDataURL(outputBlob);
+        item.previewUrl = dataUrl;
+        return dataUrl;
+      })()
+        .catch(error => {
+          console.warn('Failed to convert HEIC asset', item.fullPath || item.name, error);
+          item.previewUrl = item.url;
+          return item.url;
+        })
+        .finally(() => {
+          item.previewPromise = null;
+        });
+
+      item.previewPromise = task;
+      return task;
+    }
+
+    function applyLibraryThumbnail(image, item) {
+      if (!image || !item) return;
+      const key = item.fullPath || item.url || item.name || '';
+      image.alt = item.name || '';
+      image.decoding = 'async';
+      image.loading = 'lazy';
+
+      if (!isHeicLikeFile(item.name)) {
+        image.dataset.assetKey = key;
+        image.classList.remove('asset-thumb-loading');
+        image.src = item.url;
+        return;
+      }
+
+      image.classList.add('asset-thumb-loading');
+      image.dataset.assetKey = key;
+      ensureLibraryPreviewURL(item)
+        .then(url => {
+          if (image.dataset.assetKey === key) {
+            image.src = url;
+          }
+        })
+        .finally(() => {
+          if (image.dataset.assetKey === key) {
+            image.classList.remove('asset-thumb-loading');
+          }
+        });
     }
     function renderTimeline() {
       timelineContainer.innerHTML = '';
