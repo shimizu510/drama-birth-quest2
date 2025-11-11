@@ -131,12 +131,13 @@
     .map-wrapper {
       border-radius: 14px;
       overflow: hidden;
-      height: 320px;
+      height: 60vh;
+      min-height: 320px;
       position: relative;
       background: rgba(0, 0, 0, 0.05);
     }
 
-    #map {
+    #map-main {
       width: 100%;
       height: 100%;
     }
@@ -451,7 +452,7 @@
         <button class="secondary" type="button" id="toggle-theme">ライト/ダーク切替</button>
       </div>
       <div class="map-wrapper" role="region" aria-label="クエスト設置用マップ">
-        <div id="map"></div>
+        <div id="map-main"></div>
       </div>
       <div class="flex-row">
         <div class="field">
@@ -574,6 +575,35 @@
     const locationModeInputs = Array.from(document.querySelectorAll('input[name="location-mode"]'));
     const locationNameInput = document.getElementById('location-name');
     const locationDetailInput = document.getElementById('location-detail');
+
+    async function ensureMapKitInitialized() {
+      if (typeof mapkit === 'undefined') {
+        mapLog.textContent = 'MapKit JSが読み込まれていません。ネットワーク接続やスクリプトURLを確認してください。';
+        return false;
+      }
+
+      if (!window.__mapkitInited) {
+        mapkit.init({
+          authorizationCallback: async done => {
+            try {
+              const token = await fetch('https://mapkit-token-api.vercel.app/api/mapkit-token', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors'
+              }).then(r => r.text());
+              done(token);
+            } catch (error) {
+              console.error('Failed to fetch MapKit token', error);
+              mapLog.textContent = 'MapKitトークンの取得に失敗しました。しばらくしてから再試行してください。';
+              done('');
+            }
+          }
+        });
+        window.__mapkitInited = true;
+      }
+
+      return true;
+    }
 
     const state = {
       map: null,
@@ -3106,23 +3136,18 @@ if (firebaseConfigSaveButton) {
       }
     });
 
-    document.getElementById('mapkit-init').addEventListener('click', () => {
-      const token = "eyJhbGciOiJFUzI1NiIsImtpZCI6IjhDVUNIV1E1SDUiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJORDM0QzZUVFQ1IiwiaWF0IjoxNzYyODQzMDg1LCJleHAiOjE3NjI4NjQ2ODUsIm9yaWdpbiI6WyJodHRwczovL3NoaW1penU1MTAuZ2l0aHViLmlvIl19.JvxBkiV0gC4JE94AJOpUsIZvMocs69j0_BdjpLb_TCVX68ikkkgCT4qdjkZrX-MUPFlauPcBIVZ4UBEZvFdI3A";
-      if (typeof mapkit === 'undefined') {
-        mapLog.textContent = 'MapKit JSが読み込まれていません。ネットワーク接続やスクリプトURLを確認してください。';
-        return;
-      }
+    document.getElementById('mapkit-init').addEventListener('click', async () => {
       try {
-        if (!state.mapkitInitialized) {
-          mapkit.init({ authorizationCallback: done => done(token) });
-          state.mapkitInitialized = true;
-        }
+        const initialized = await ensureMapKitInitialized();
+        if (!initialized) return;
+        state.mapkitInitialized = true;
         if (!state.map) {
-          state.map = new mapkit.Map('map', {
+          state.map = new mapkit.Map('map-main', {
             colorScheme: document.body.classList.contains('dark') ? mapkit.Map.ColorSchemes.Dark : mapkit.Map.ColorSchemes.Light,
-            showsScale: true,
+            showsScale: mapkit.FeatureVisibility.Always,
             isRotationEnabled: false
           });
+          state.map.showsScale = mapkit.FeatureVisibility.Always;
           state.map.addEventListener('singleTap', event => {
             if (state.locationChoice.mode !== 'specific') return;
             const { latitude, longitude } = event.coordinate;
@@ -3130,6 +3155,7 @@ if (firebaseConfigSaveButton) {
           });
         } else {
           state.map.colorScheme = document.body.classList.contains('dark') ? mapkit.Map.ColorSchemes.Dark : mapkit.Map.ColorSchemes.Light;
+          state.map.showsScale = mapkit.FeatureVisibility.Always;
         }
         const lat = parseFloat(latitudeInput.value) || 35.680959;
         const lon = parseFloat(longitudeInput.value) || 139.767307;
@@ -3246,24 +3272,35 @@ if (firebaseConfigSaveButton) {
 
   <div id="map" style="width:100%; height:60vh;"></div>
 
-  <script src="https://cdn.apple-mapkit.com/mk/5.x.x/mapkit.js"></script>
   <script>
-    mapkit.init({
-      authorizationCallback: async (done) => {
-        const token = await fetch("https://mapkit-token-api.vercel.app/api/mapkit-token", {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          mode: "cors"
-        }).then(r => r.text());
-        done(token);
+    (async () => {
+      if (typeof ensureMapKitInitialized === 'function') {
+        const ready = await ensureMapKitInitialized();
+        if (!ready) return;
+      } else if (!window.__mapkitInited) {
+        if (typeof mapkit !== 'undefined') {
+          mapkit.init({
+            authorizationCallback: async done => {
+              const token = await fetch('https://mapkit-token-api.vercel.app/api/mapkit-token', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors'
+              }).then(r => r.text());
+              done(token);
+            }
+          });
+          window.__mapkitInited = true;
+        }
       }
-    });
 
-    const map = new mapkit.Map("map");
-    map.region = new mapkit.CoordinateRegion(
-      new mapkit.Coordinate(35.681236, 139.767125), // 東京駅
-      new mapkit.CoordinateSpan(0.1, 0.1)
-    );
+      if (typeof mapkit === 'undefined') return;
+      const map = new mapkit.Map('map');
+      map.region = new mapkit.CoordinateRegion(
+        new mapkit.Coordinate(35.681236, 139.767125), // 東京駅
+        new mapkit.CoordinateSpan(0.1, 0.1)
+      );
+      map.showsScale = mapkit.FeatureVisibility.Always;
+    })();
   </script>
 </body>
 </html>
