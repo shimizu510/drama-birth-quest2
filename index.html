@@ -577,6 +577,7 @@
 
     const state = {
       map: null,
+      mapkitInitialized: false,
       marker: null,
       selectedCoordinate: null,
       stage: 'askTitle',
@@ -3112,15 +3113,24 @@ if (firebaseConfigSaveButton) {
         return;
       }
       try {
-        mapkit.init({ authorizationCallback: done => done(token) });
-        state.map = new mapkit.Map('map', {
-          colorScheme: document.body.classList.contains('dark') ? mapkit.Map.ColorSchemes.Dark : mapkit.Map.ColorSchemes.Light
-        });
-        state.map.addEventListener('singleTap', event => {
-          if (state.locationChoice.mode !== 'specific') return;
-          const { latitude, longitude } = event.coordinate;
-          setQuestLocation(latitude, longitude);
-        });
+        if (!state.mapkitInitialized) {
+          mapkit.init({ authorizationCallback: done => done(token) });
+          state.mapkitInitialized = true;
+        }
+        if (!state.map) {
+          state.map = new mapkit.Map('map', {
+            colorScheme: document.body.classList.contains('dark') ? mapkit.Map.ColorSchemes.Dark : mapkit.Map.ColorSchemes.Light,
+            showsScale: true,
+            isRotationEnabled: false
+          });
+          state.map.addEventListener('singleTap', event => {
+            if (state.locationChoice.mode !== 'specific') return;
+            const { latitude, longitude } = event.coordinate;
+            setQuestLocation(latitude, longitude);
+          });
+        } else {
+          state.map.colorScheme = document.body.classList.contains('dark') ? mapkit.Map.ColorSchemes.Dark : mapkit.Map.ColorSchemes.Light;
+        }
         const lat = parseFloat(latitudeInput.value) || 35.680959;
         const lon = parseFloat(longitudeInput.value) || 139.767307;
         const radius = parseFloat(radiusInput.value) || 500;
@@ -3135,8 +3145,9 @@ if (firebaseConfigSaveButton) {
     function focusMap(latitude, longitude, radius) {
       if (!state.map || typeof mapkit === 'undefined') return;
       const coord = new mapkit.Coordinate(latitude, longitude);
-      const span = radius / 111000;
-      state.map.setRegion(new mapkit.CoordinateRegion(coord, new mapkit.CoordinateSpan(span, span)));
+      const cameraDistance = Math.max(200, (Number.isFinite(radius) ? radius : 500) * 2.5);
+      state.map.setCenterAnimated(coord);
+      state.map.cameraDistance = cameraDistance;
       setQuestLocation(latitude, longitude);
     }
 
