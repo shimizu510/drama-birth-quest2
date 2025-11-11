@@ -3243,5 +3243,27 @@ if (firebaseConfigSaveButton) {
     initializeFirebase();
     setStage('askTitle');
   </script>
+
+  <div id="map" style="width:100%; height:60vh;"></div>
+
+  <script src="https://cdn.apple-mapkit.com/mk/5.x.x/mapkit.js"></script>
+  <script>
+    mapkit.init({
+      authorizationCallback: async (done) => {
+        const token = await fetch("https://mapkit-token-api.vercel.app/api/mapkit-token", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          mode: "cors"
+        }).then(r => r.text());
+        done(token);
+      }
+    });
+
+    const map = new mapkit.Map("map");
+    map.region = new mapkit.CoordinateRegion(
+      new mapkit.Coordinate(35.681236, 139.767125), // 東京駅
+      new mapkit.CoordinateSpan(0.1, 0.1)
+    );
+  </script>
 </body>
 </html>
