@@ -485,8 +485,8 @@
         <legend>配置モード</legend>
         <div class="flex-row">
           <label><input type="radio" name="location-mode" value="everywhere" checked> すべての場所</label>
-          <label><input type="radio" name="location-mode" value="current"> 現在地を使用</label>
-          <label><input type="radio" name="location-mode" value="specific"> マップで指定</label>
+          <label><input type="radio" name="location-mode" value="currentLocation"> 現在地を使用</label>
+          <label><input type="radio" name="location-mode" value="specificLocation"> マップで指定</label>
         </div>
       </fieldset>
       <label for="location-name">場所名称 (任意)</label>
@@ -636,9 +636,9 @@
 
 
       state.selectedCoordinate = { latitude: latNum, longitude: lngNum };
-      const modeRadio = document.querySelector('input[name="location-mode"][value="specific"]');
+      const modeRadio = document.querySelector('input[name="location-mode"][value="specificLocation"]');
       if (modeRadio) modeRadio.checked = true;
-      state.locationChoice.mode = 'specific';
+      state.locationChoice.mode = 'specificLocation';
 
       mapLog.textContent = `座標を設定: ${latNum.toFixed(6)}, ${lngNum.toFixed(6)}${note ? '（' + note + '）' : ''}`;
 
@@ -2403,10 +2403,10 @@
         detail: locationDetailInput.value.trim() || null,
         radius
       };
-      if (mode === 'specific' && state.selectedCoordinate) {
+      if (mode === 'specificLocation' && state.selectedCoordinate) {
         payload.latitude = Number(state.selectedCoordinate.latitude.toFixed(6));
         payload.longitude = Number(state.selectedCoordinate.longitude.toFixed(6));
-      } else if (mode === 'current' && state.selectedCoordinate) {
+      } else if (mode === 'currentLocation' && state.selectedCoordinate) {
         payload.latitude = Number(state.selectedCoordinate.latitude.toFixed(6));
         payload.longitude = Number(state.selectedCoordinate.longitude.toFixed(6));
       } else {
@@ -3293,7 +3293,7 @@ if (firebaseConfigSaveButton) {
           });
           state.map.showsScale = mapkit.FeatureVisibility.Always;
           state.map.addEventListener('singleTap', event => {
-            if (state.locationChoice.mode !== 'specific') return;
+            if (state.locationChoice.mode !== 'specificLocation') return;
             const { latitude, longitude } = event.coordinate;
             setQuestLocation(latitude, longitude);
           });
@@ -3410,7 +3410,7 @@ if (firebaseConfigSaveButton) {
             state.marker = null;
           }
           mapLog.textContent = 'すべての場所モードに切り替えました。';
-        } else if (input.value === 'current') {
+        } else if (input.value === 'currentLocation') {
           mapLog.textContent = '現在地モードです。緯度経度を入力するか、マップで指定してください。';
         } else {
           mapLog.textContent = 'マップをタップして設置場所を指定してください。';
@@ -3472,7 +3472,7 @@ if (firebaseConfigSaveButton) {
       if (typeof mapkit === 'undefined') return;
       const map = new mapkit.Map('map');
       map.region = new mapkit.CoordinateRegion(
-        new mapkit.Coordinate(35.681236, 139.767125), // 東京駅
+        new mapkit.Coordinate(35.681236, 139.767125),
         new mapkit.CoordinateSpan(0.1, 0.1)
       );
       map.showsScale = mapkit.FeatureVisibility.Always;
