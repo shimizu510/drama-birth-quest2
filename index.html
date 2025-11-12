@@ -434,7 +434,14 @@
         color: rgba(245, 245, 247, 0.6);
       }
     }
-  </style>
+</style>
+<!-- ▼▼ 追加：トークン不要の Leaflet（OSM） ▼▼ -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- ▲▲ 追加ここまで ▲▲ -->
 </head>
 <body>
   <header>
@@ -450,6 +457,12 @@
       <div class="button-row">
         <button class="primary" type="button" id="mapkit-init">Mapを初期化</button>
         <button class="secondary" type="button" id="toggle-theme">ライト/ダーク切替</button>
+        <!-- ▼▼ 追加：トークン不要オプション ▼▼ -->
+        <button class="flat" type="button" id="geo-get">現在地の座標</button>
+        <button class="flat" type="button" id="fallback-map">代替マップで選択</button>
+        <input id="place-or-url" type="text" placeholder="住所/地名 または Googleマップの共有URL" style="flex:1;min-width:220px;">
+        <button class="flat" type="button" id="geocode-run">検索→座標</button>
+        <!-- ▲▲ 追加ここまで ▲▲ -->
       </div>
       <div class="map-wrapper" role="region" aria-label="クエスト設置用マップ">
         <div id="map-main"></div>
@@ -576,6 +589,12 @@
     const locationNameInput = document.getElementById('location-name');
     const locationDetailInput = document.getElementById('location-detail');
 
+    const geoGetBtn = document.getElementById('geo-get');
+    const fallbackMapBtn = document.getElementById('fallback-map');
+    const placeOrUrlInput = document.getElementById('place-or-url');
+    const geocodeRunBtn = document.getElementById('geocode-run');
+
+
     async function ensureMapKitInitialized() {
       if (typeof mapkit === 'undefined') {
         mapLog.textContent = 'MapKit JSが読み込まれていません。ネットワーク接続やスクリプトURLを確認してください。';
@@ -604,6 +623,131 @@
 
       return true;
     }
+
+
+    function setLatLng(lat, lng, note = '') {
+      const latNum = Number(lat), lngNum = Number(lng);
+      if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+        alert('座標が不正です');
+        return;
+      }
+      latitudeInput.value = latNum.toFixed(6);
+      longitudeInput.value = lngNum.toFixed(6);
+
+
+      state.selectedCoordinate = { latitude: latNum, longitude: lngNum };
+      const modeRadio = document.querySelector('input[name="location-mode"][value="specific"]');
+      if (modeRadio) modeRadio.checked = true;
+      state.locationChoice.mode = 'specific';
+
+      mapLog.textContent = `座標を設定: ${latNum.toFixed(6)}, ${lngNum.toFixed(6)}${note ? '（' + note + '）' : ''}`;
+
+
+      if (window.__leafletMap && window.__leafletMarker) {
+        window.__leafletMarker.setLatLng([latNum, lngNum]).addTo(window.__leafletMap);
+        window.__leafletMap.setView([latNum, lngNum], 16);
+      }
+
+      renderQuestPreview();
+    }
+
+    function getBrowserGeolocation() {
+      if (!('geolocation' in navigator)) {
+        alert('このブラウザは現在地取得に対応していません');
+        return;
+      }
+      mapLog.textContent = '現在地の取得を要求しています…（ブラウザの許可が必要です）';
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const { latitude, longitude } = pos.coords;
+          setLatLng(latitude, longitude, '現在地');
+        },
+        err => {
+          mapLog.textContent = `現在地の取得に失敗: ${err.message}`;
+          alert('現在地の取得に失敗しました。位置情報の権限や設定をご確認ください。');
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    function tryParseGoogleMapsURL(input) {
+      try {
+        const url = new URL(input);
+
+        const at = url.href.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (at) return { lat: parseFloat(at[1]), lng: parseFloat(at[2]) };
+
+        const q = url.searchParams.get('q') || url.searchParams.get('query');
+        if (q) {
+          const m = q.match(/(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+          if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+        }
+
+      } catch (_) {
+        /* 入力がURLでない場合は無視 */
+      }
+      return null;
+    }
+
+
+    async function geocodeWithNominatim(query) {
+      const endpoint = 'https://nominatim.openstreetmap.org/search';
+      const url = `${endpoint}?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
+      const res = await fetch(url, {
+        headers: { 'Accept-Language': 'ja' }
+      });
+      if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
+      const json = await res.json();
+      if (!Array.isArray(json) || json.length === 0) return null;
+      const hit = json[0];
+      return { lat: parseFloat(hit.lat), lng: parseFloat(hit.lon), displayName: hit.display_name };
+    }
+
+    function initTokenlessMap() {
+      if (!window.L) {
+        alert('Leaflet の読み込みに失敗しました（ネットワークをご確認ください）');
+        return;
+      }
+
+      const container = document.getElementById('map-main');
+      if (!container) return;
+
+
+      if (window.__leafletMap) {
+        mapLog.textContent = '代替マップを表示中です。マップをクリックすると座標が入ります。';
+        return;
+      }
+
+
+      const initLat = parseFloat(latitudeInput.value) || 35.681236;
+      const initLng = parseFloat(longitudeInput.value) || 139.767125;
+
+
+      container.innerHTML = '';
+
+      const map = L.map(container, { zoomControl: true }).setView([initLat, initLng], 14);
+      L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        { attribution: '&copy; OpenStreetMap contributors' }
+      ).addTo(map);
+
+      const marker = L.marker([initLat, initLng], { draggable: true }).addTo(map);
+      marker.on('dragend', () => {
+        const ll = marker.getLatLng();
+        setLatLng(ll.lat, ll.lng, 'ドラッグ');
+      });
+
+      map.on('click', (e) => {
+        marker.setLatLng(e.latlng);
+        setLatLng(e.latlng.lat, e.latlng.lng, 'クリック');
+      });
+
+      window.__leafletMap = map;
+      window.__leafletMarker = marker;
+
+      mapLog.textContent = '代替マップを表示しました。マップをクリック/ドラッグで座標を設定できます。';
+    }
+
 
     const state = {
       map: null,
@@ -3168,6 +3312,41 @@ if (firebaseConfigSaveButton) {
       }
     });
 
+    if (geoGetBtn) {
+      geoGetBtn.addEventListener('click', getBrowserGeolocation);
+    }
+    if (fallbackMapBtn) {
+      fallbackMapBtn.addEventListener('click', initTokenlessMap);
+    }
+    if (geocodeRunBtn) {
+      geocodeRunBtn.addEventListener('click', async () => {
+        const q = (placeOrUrlInput.value || '').trim();
+        if (!q) return;
+        // 1) まず共有URLっぽいなら座標を抜く
+        const parsed = tryParseGoogleMapsURL(q);
+        if (parsed) {
+          setLatLng(parsed.lat, parsed.lng, 'URL解析');
+          // 必要なら代替マップを自動オープン
+          if (!window.__leafletMap) initTokenlessMap();
+          return;
+        }
+        // 2) 住所/地名はジオコーディング
+        mapLog.textContent = '位置検索中…';
+        try {
+          const hit = await geocodeWithNominatim(q);
+          if (!hit) {
+            mapLog.textContent = '見つかりませんでした。キーワードを変えてお試しください。';
+            alert('場所が見つかりませんでした。');
+            return;
+          }
+          setLatLng(hit.lat, hit.lng, '検索');
+          if (!window.__leafletMap) initTokenlessMap();
+        } catch (e) {
+          mapLog.textContent = `検索エラー: ${e.message}`;
+          alert('検索に失敗しました。時間をおいてお試しください。');
+        }
+      });
+    }
     function focusMap(latitude, longitude, radius) {
       if (!state.map || typeof mapkit === 'undefined') return;
       const coord = new mapkit.Coordinate(latitude, longitude);
@@ -3178,9 +3357,7 @@ if (firebaseConfigSaveButton) {
     }
 
     function setQuestLocation(latitude, longitude) {
-      state.selectedCoordinate = { latitude, longitude };
-      latitudeInput.value = latitude.toFixed(6);
-      longitudeInput.value = longitude.toFixed(6);
+      setLatLng(latitude, longitude, 'MapKit');
       if (state.marker && state.map && typeof mapkit !== 'undefined') {
         state.map.removeAnnotation(state.marker);
       }
@@ -3192,7 +3369,6 @@ if (firebaseConfigSaveButton) {
         });
         state.map.addAnnotation(state.marker);
       }
-      renderQuestPreview();
     }
 
     latitudeInput.addEventListener('change', () => {
