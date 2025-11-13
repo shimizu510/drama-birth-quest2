@@ -1306,8 +1306,9 @@
       imageInput.addEventListener('change', async () => {
         const file = imageInput.files?.[0];
         if (!file) return;
-        const dataUrl = await fileToDataURL(file);
-        const key = storeAsset(dataUrl, 'background', file.name);
+        const { dataUrl, name } = await prepareAssetFromFile(file);
+        if (!dataUrl) return;
+        const key = storeAsset(dataUrl, 'background', name || file.name);
         state.background.assetKey = key;
         state.background.assetURL = '';
         state.background.libraryPath = null;
@@ -1633,8 +1634,12 @@
               alert('キャラクター画像を選択してください。');
               return;
             }
-            const dataUrl = await fileToDataURL(file);
-            assetKey = storeAsset(dataUrl, 'character', file.name);
+            const { dataUrl, name } = await prepareAssetFromFile(file);
+            if (!dataUrl) {
+              alert('画像の読み込みに失敗しました。');
+              return;
+            }
+            assetKey = storeAsset(dataUrl, 'character', name || file.name);
           } else if (source === 'library') {
             const selected = (state.charDraft.assetURL || '').trim();
             if (!selected) {
@@ -2025,8 +2030,9 @@
       imageInput.addEventListener('change', async () => {
         const file = imageInput.files?.[0];
         if (!file) return;
-        const dataUrl = await fileToDataURL(file);
-        state.pendingBackgroundChange.assetKey = storeAsset(dataUrl, 'background', file.name);
+        const { dataUrl, name } = await prepareAssetFromFile(file);
+        if (!dataUrl) return;
+        state.pendingBackgroundChange.assetKey = storeAsset(dataUrl, 'background', name || file.name);
         state.pendingBackgroundChange.assetURL = '';
         state.pendingBackgroundChange.libraryPath = null;
         renderStage();
@@ -2296,8 +2302,9 @@
       fileInput.addEventListener('change', async () => {
         const file = fileInput.files?.[0];
         if (!file) return;
-        const dataUrl = await fileToDataURL(file);
-        state.cover.assetKey = storeAsset(dataUrl, 'cover', file.name);
+        const { dataUrl, name } = await prepareAssetFromFile(file);
+        if (!dataUrl) return;
+        state.cover.assetKey = storeAsset(dataUrl, 'cover', name || file.name);
         state.cover.url = '';
         state.cover.libraryPath = null;
         state.ui.coverLibraryCollapsed = false;
@@ -2411,7 +2418,7 @@
       return key;
     }
 
-    function fileToDataURL(file) {
+    function readFileAsDataURL(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
@@ -2433,6 +2440,54 @@
       return /\.hei[cf]$/i.test(name.trim());
     }
 
+    function isHeicFileBlob(file) {
+      if (!file) return false;
+      if (isHeicLikeFile(file.name)) return true;
+      const type = typeof file.type === 'string' ? file.type : '';
+      return /image\/hei[cf]/i.test(type);
+    }
+
+    function renameHeicAsPng(name = '') {
+      const base = name.replace(/\.[^.]+$/, '');
+      return `${base || 'image'}.png`;
+    }
+
+    async function convertHeicBlobToDataURL(blob) {
+      if (typeof heic2any !== 'function') {
+        throw new Error('HEIC変換ライブラリが利用できません。');
+      }
+      const converted = await heic2any({ blob, toType: 'image/png', quality: 0.92 });
+      const outputBlob = Array.isArray(converted) ? converted[0] : converted;
+      if (!(outputBlob instanceof Blob)) {
+        throw new Error('HEIC画像の変換結果を読み取れませんでした。');
+      }
+      return blobToDataURL(outputBlob);
+    }
+
+    async function prepareAssetFromFile(file) {
+      if (!file) {
+        return { dataUrl: '', name: '' };
+      }
+
+      if (isHeicFileBlob(file)) {
+        try {
+          const dataUrl = await convertHeicBlobToDataURL(file);
+          return { dataUrl, name: renameHeicAsPng(file.name) };
+        } catch (error) {
+          console.warn('Failed to convert HEIC file', file.name, error);
+          try {
+            const fallback = await readFileAsDataURL(file);
+            return { dataUrl: fallback, name: file.name };
+          } catch (readError) {
+            throw error;
+          }
+        }
+      }
+
+      const dataUrl = await readFileAsDataURL(file);
+      return { dataUrl, name: file.name };
+    }
+
     async function ensureLibraryPreviewURL(item) {
       if (!item) return '';
       if (!isHeicLikeFile(item.name)) {
@@ -2447,20 +2502,12 @@
       }
 
       const task = (async () => {
-        if (typeof heic2any !== 'function') {
-          throw new Error('HEIC変換ライブラリが利用できません。');
-        }
         const response = await fetch(item.url);
         if (!response.ok) {
           throw new Error(`HEIC画像の取得に失敗しました: ${response.status}`);
         }
         const heicBlob = await response.blob();
-        const converted = await heic2any({ blob: heicBlob, toType: 'image/png', quality: 0.92 });
-        const outputBlob = Array.isArray(converted) ? converted[0] : converted;
-        if (!(outputBlob instanceof Blob)) {
-          throw new Error('HEIC画像の変換結果を読み取れませんでした。');
-        }
-        const dataUrl = await blobToDataURL(outputBlob);
+        const dataUrl = await convertHeicBlobToDataURL(heicBlob);
         item.previewUrl = dataUrl;
         return dataUrl;
       })()
