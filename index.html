@@ -1154,7 +1154,7 @@
       youtubeLabel.style.display = youtubeInput.style.display = state.background.type === 'youtube' ? 'block' : 'none';
 
       const imageLabel = createElement('label', { htmlFor: 'bg-image-input', textContent: '背景画像 (アップロード)' });
-      const imageInput = createElement('input', { type: 'file', id: 'bg-image-input', accept: 'image/*' });
+      const imageInput = createElement('input', { type: 'file', id: 'bg-image-input', accept: 'image/*,.heic,.heif' });
       const showImageControls = state.background.type === 'image';
       imageLabel.style.display = imageInput.style.display = showImageControls ? 'block' : 'none';
 
@@ -1434,7 +1434,7 @@
       });
 
       const fileLabel = createElement('label', { htmlFor: 'char-image-file', textContent: 'キャラクター画像' });
-      const fileInput = createElement('input', { type: 'file', id: 'char-image-file', accept: 'image/*' });
+      const fileInput = createElement('input', { type: 'file', id: 'char-image-file', accept: 'image/*,.heic,.heif' });
       const useUpload = sourceSelect.value === 'upload';
       fileLabel.style.display = useUpload ? 'block' : 'none';
       fileInput.style.display = useUpload ? 'block' : 'none';
@@ -1913,7 +1913,7 @@
       youtubeLabel.style.display = youtubeInput.style.display = state.pendingBackgroundChange.type === 'youtube' ? 'block' : 'none';
 
       const imageLabel = createElement('label', { htmlFor: 'change-bg-image', textContent: '背景画像 (アップロード)' });
-      const imageInput = createElement('input', { type: 'file', id: 'change-bg-image', accept: 'image/*' });
+      const imageInput = createElement('input', { type: 'file', id: 'change-bg-image', accept: 'image/*,.heic,.heif' });
       const showImageControls = state.pendingBackgroundChange.type === 'image';
       imageLabel.style.display = imageInput.style.display = showImageControls ? 'block' : 'none';
 
@@ -2141,7 +2141,7 @@
       });
 
       const fileLabel = createElement('label', { htmlFor: 'cover-image-file', textContent: 'サムネイル画像' });
-      const fileInput = createElement('input', { type: 'file', id: 'cover-image-file', accept: 'image/*' });
+      const fileInput = createElement('input', { type: 'file', id: 'cover-image-file', accept: 'image/*,.heic,.heif' });
       const urlLabel = createElement('label', { htmlFor: 'cover-image-url', textContent: 'サムネイル画像URL' });
       const urlInput = createElement('input', { type: 'url', id: 'cover-image-url', value: state.cover.url, placeholder: 'https://example.com/cover.png' });
 
