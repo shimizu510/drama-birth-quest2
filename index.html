@@ -760,7 +760,7 @@
       background: { type: '', youtubeId: '', assetKey: null, assetURL: '', libraryPath: null },
       flowOps: [],
       assets: {},
-      cover: { assetKey: null, url: '' },
+      cover: { assetKey: null, url: '', libraryPath: null },
       allowFinishOptions: false,
       textDraft: { type: 'text', narration: false, speaker: 'center', text: '' },
       charDraft: {},
@@ -1987,13 +1987,27 @@
 
     function renderChooseCover() {
       const info = createElement('p', { textContent: 'クエスト一覧に表示するトップ画像（サムネイル）を設定します。' });
-      const current = createElement('p', { className: 'log', textContent: state.cover.assetKey ? `選択済み: asset://${state.cover.assetKey}` : (state.cover.url ? `選択済みURL: ${state.cover.url}` : '未設定') });
+      const describeCover = () => {
+        if (state.cover.assetKey) {
+          return `選択済み: asset://${state.cover.assetKey}`;
+        }
+        if (state.cover.libraryPath) {
+          return `選択済み: ${state.cover.libraryPath}`;
+        }
+        if (state.cover.url) {
+          return `選択済みURL: ${state.cover.url}`;
+        }
+        return '未設定';
+      };
+      const current = createElement('p', { className: 'log', textContent: describeCover() });
       const sourceLabel = createElement('label', { textContent: '指定方法' });
       const sourceSelect = createElement('select');
-      ['upload', 'url'].forEach(value => {
-        const option = createElement('option', { value, textContent: value === 'upload' ? '画像をアップロード' : '画像URLを入力' });
-        if ((!state.cover.assetKey && state.cover.url) && value === 'url') option.selected = true;
-        if (state.cover.assetKey && value === 'upload') option.selected = true;
+      const initialSource = state.cover.assetKey
+        ? 'upload'
+        : (state.cover.libraryPath ? 'background' : (state.cover.url ? 'url' : 'upload'));
+      [['upload', '画像をアップロード'], ['background', '背景から選択'], ['url', '画像URLを入力']].forEach(([value, label]) => {
+        const option = createElement('option', { value, textContent: label });
+        if (initialSource === value) option.selected = true;
         sourceSelect.appendChild(option);
       });
 
@@ -2002,20 +2016,127 @@
       const urlLabel = createElement('label', { htmlFor: 'cover-image-url', textContent: 'サムネイル画像URL' });
       const urlInput = createElement('input', { type: 'url', id: 'cover-image-url', value: state.cover.url, placeholder: 'https://example.com/cover.png' });
 
+      const libraryContainer = createElement('div', { className: 'asset-library' });
+      libraryContainer.style.display = 'none';
+
+      const renderLibrary = () => {
+        const libraryState = state.libraries.backgrounds;
+        libraryContainer.innerHTML = '';
+
+        const header = createElement('div', { className: 'asset-library-header' });
+        const title = createElement('span', { className: 'asset-library-header-title', textContent: 'アップロード済みの背景から選択' });
+        header.appendChild(title);
+
+        const refreshButton = createElement('button', {
+          className: 'flat',
+          type: 'button',
+          textContent: libraryState.loading ? '読み込み中…' : '再読み込み'
+        });
+        refreshButton.disabled = libraryState.loading;
+        refreshButton.addEventListener('click', async () => {
+          try {
+            await loadBackgroundLibrary(true);
+          } catch (error) {
+            console.error('Failed to refresh background library for cover', error);
+          } finally {
+            if (state.stage === 'chooseCover' && sourceSelect.value === 'background') {
+              renderLibrary();
+            }
+          }
+        });
+        header.appendChild(refreshButton);
+        libraryContainer.appendChild(header);
+
+        if (libraryState.error) {
+          const errorMessage = createElement('p', { className: 'log', textContent: `読み込みエラー: ${libraryState.error}` });
+          libraryContainer.appendChild(errorMessage);
+          return;
+        }
+
+        if (libraryState.loading && libraryState.items.length === 0) {
+          const loadingMessage = createElement('p', { className: 'log', textContent: '背景画像を読み込み中です…' });
+          libraryContainer.appendChild(loadingMessage);
+          return;
+        }
+
+        if (libraryState.items.length === 0) {
+          const emptyMessage = createElement('p', { className: 'log', textContent: 'まだ利用可能な背景画像がありません。' });
+          libraryContainer.appendChild(emptyMessage);
+          return;
+        }
+
+        const grid = createElement('div', { className: 'asset-grid' });
+        libraryState.items.forEach(item => {
+          const button = createElement('button', { className: 'asset-thumb', type: 'button' });
+          if (
+            state.cover.libraryPath === item.fullPath ||
+            (!state.cover.libraryPath && state.cover.url === item.url)
+          ) {
+            button.classList.add('selected');
+          }
+          const image = document.createElement('img');
+          applyLibraryThumbnail(image, item);
+          const label = createElement('span', { className: 'asset-thumb-label', textContent: item.name });
+          button.append(image, label);
+          button.addEventListener('click', () => {
+            state.cover.assetKey = null;
+            state.cover.url = item.url;
+            state.cover.libraryPath = item.fullPath;
+            current.textContent = describeCover();
+            renderQuestPreview();
+            renderLibrary();
+          });
+          grid.appendChild(button);
+        });
+        libraryContainer.appendChild(grid);
+      };
+
       const updateVisibility = () => {
         const type = sourceSelect.value;
         fileLabel.style.display = fileInput.style.display = type === 'upload' ? 'block' : 'none';
         urlLabel.style.display = urlInput.style.display = type === 'url' ? 'block' : 'none';
+        libraryContainer.style.display = type === 'background' ? 'block' : 'none';
+        if (type === 'background') {
+          renderLibrary();
+          if (!state.libraries.backgrounds.loaded && !state.libraries.backgrounds.loading) {
+            loadBackgroundLibrary()
+              .then(() => {
+                if (state.stage === 'chooseCover' && sourceSelect.value === 'background') {
+                  renderLibrary();
+                }
+              })
+              .catch(error => {
+                console.error('Failed to load background library for cover', error);
+                if (state.stage === 'chooseCover' && sourceSelect.value === 'background') {
+                  renderLibrary();
+                }
+              });
+          }
+        }
       };
       updateVisibility();
 
       sourceSelect.addEventListener('change', () => {
+        const type = sourceSelect.value;
+        if (type !== 'upload') {
+          state.cover.assetKey = null;
+        }
+        if (type === 'upload') {
+          state.cover.url = '';
+          state.cover.libraryPath = null;
+          fileInput.value = '';
+        } else if (type === 'url') {
+          state.cover.libraryPath = null;
+        }
+        current.textContent = describeCover();
         updateVisibility();
       });
 
       urlInput.addEventListener('input', () => {
         state.cover.url = urlInput.value.trim();
         state.cover.assetKey = null;
+        state.cover.libraryPath = null;
+        current.textContent = describeCover();
         renderQuestPreview();
       });
 
@@ -2025,6 +2146,8 @@
         const dataUrl = await fileToDataURL(file);
         state.cover.assetKey = storeAsset(dataUrl, 'cover', file.name);
         state.cover.url = '';
+        state.cover.libraryPath = null;
+        current.textContent = describeCover();
         renderQuestPreview();
       });
 
@@ -2033,18 +2156,23 @@
       backButton.addEventListener('click', () => setStage('menu'));
       const doneButton = createElement('button', { className: 'primary', type: 'button', textContent: '完了' });
       doneButton.addEventListener('click', () => {
-        if (sourceSelect.value === 'url' && !state.cover.url) {
+        const type = sourceSelect.value;
+        if (type === 'url' && !state.cover.url) {
           alert('URLを入力するか、アップロードを選択してください。');
           return;
         }
-        if (sourceSelect.value === 'upload' && !state.cover.assetKey) {
+        if (type === 'upload' && !state.cover.assetKey) {
           alert('画像をアップロードしてください。');
+          return;
+        }
+        if (type === 'background' && !state.cover.libraryPath && !state.cover.url) {
+          alert('背景からサムネイルに使いたい画像を選んでください。');
           return;
         }
         setStage('menu');
       });
       actions.append(backButton, doneButton);
-      stageContainer.append(info, current, sourceLabel, sourceSelect, fileLabel, fileInput, urlLabel, urlInput, actions);
+      stageContainer.append(info, current, sourceLabel, sourceSelect, fileLabel, fileInput, urlLabel, urlInput, libraryContainer, actions);
     }
 
     function renderAskThumbnail() {
@@ -2052,11 +2180,14 @@
       const summary = createElement('ul');
       summary.style.margin = '0';
       summary.style.paddingLeft = '1.25rem';
+      const coverSummary = state.cover.assetKey
+        ? 'asset://' + state.cover.assetKey
+        : (state.cover.libraryPath || state.cover.url || 'なし');
       summary.innerHTML = `
         <li>タイトル: ${state.title || '(未設定)'}</li>
         <li>背景: ${state.background.type || '(未設定)'}</li>
         <li>フロー数: ${state.flowOps.length}</li>
-        <li>サムネイル: ${state.cover.assetKey ? 'asset://' + state.cover.assetKey : (state.cover.url || 'なし')}</li>
+        <li>サムネイル: ${coverSummary}</li>
       `;
       const actions = createElement('div', { className: 'stage-actions' });
       const finishButton = createElement('button', { className: 'primary', type: 'button', textContent: '完了してメニューへ戻る' });
@@ -3252,7 +3383,7 @@ if (firebaseConfigSaveButton) {
       state.background = { type: '', youtubeId: '', assetKey: null, assetURL: '', libraryPath: null };
       state.flowOps = [];
       state.assets = {};
-      state.cover = { assetKey: null, url: '' };
+      state.cover = { assetKey: null, url: '', libraryPath: null };
       state.textDraft = { type: 'text', narration: false, speaker: 'center', text: '' };
       state.charDraft = {};
       state.pendingBackgroundChange = null;
