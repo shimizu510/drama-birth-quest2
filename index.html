@@ -290,6 +290,46 @@
       background: rgba(108, 76, 255, 0.28);
     }
 
+    .asset-selection-preview {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      border-radius: 12px;
+      background: rgba(108, 76, 255, 0.12);
+      border: 2px solid rgba(108, 76, 255, 0.25);
+    }
+
+    .asset-selection-preview img {
+      width: 96px;
+      aspect-ratio: 1 / 1;
+      object-fit: contain;
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
+
+    body.dark .asset-selection-preview {
+      background: rgba(108, 76, 255, 0.18);
+      border-color: rgba(108, 76, 255, 0.35);
+    }
+
+    .asset-selection-preview-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .asset-selection-preview-info strong {
+      font-size: 0.9rem;
+    }
+
+    .asset-selection-preview-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
 
     details.config-panel {
       border-radius: 12px;
@@ -767,6 +807,11 @@
       pendingBackgroundChange: null,
       tempSlot: null,
       locationChoice: { mode: 'everywhere', name: '', detail: '' },
+      ui: {
+        backgroundLibraryCollapsed: false,
+        characterLibraryCollapsed: false,
+        coverLibraryCollapsed: false
+      },
       libraries: {
         characters: {
           loading: false,
@@ -1161,13 +1206,44 @@
             return;
           }
 
+          const selectedItem = libraryState.items.find(item =>
+            state.background.libraryPath === item.fullPath ||
+            (!state.background.libraryPath && state.background.assetURL === item.url)
+          );
+
+          if (selectedItem && state.ui.backgroundLibraryCollapsed) {
+            const preview = createElement('div', { className: 'asset-selection-preview' });
+            const image = document.createElement('img');
+            applyLibraryThumbnail(image, selectedItem);
+            const info = createElement('div', { className: 'asset-selection-preview-info' });
+            const nameLabel = createElement('strong', { textContent: selectedItem.name });
+            const pathLabel = createElement('span', {
+              className: 'asset-thumb-label',
+              textContent: selectedItem.fullPath || selectedItem.url
+            });
+            info.append(nameLabel, pathLabel);
+            preview.append(image, info);
+            libraryContainer.appendChild(preview);
+
+            const actions = createElement('div', { className: 'asset-selection-preview-actions' });
+            const changeButton = createElement('button', {
+              className: 'flat',
+              type: 'button',
+              textContent: '別の画像を選ぶ'
+            });
+            changeButton.addEventListener('click', () => {
+              state.ui.backgroundLibraryCollapsed = false;
+              renderStage();
+            });
+            actions.appendChild(changeButton);
+            libraryContainer.appendChild(actions);
+            return;
+          }
+
           const grid = createElement('div', { className: 'asset-grid' });
           libraryState.items.forEach(item => {
             const button = createElement('button', { className: 'asset-thumb', type: 'button' });
-            if (
-              state.background.libraryPath === item.fullPath ||
-              (!state.background.libraryPath && state.background.assetURL === item.url)
-            ) {
+            if (selectedItem && (selectedItem.fullPath === item.fullPath || (!selectedItem.fullPath && selectedItem.url === item.url))) {
               button.classList.add('selected');
             }
             const image = document.createElement('img');
@@ -1178,6 +1254,7 @@
               state.background.assetKey = null;
               state.background.assetURL = item.url;
               state.background.libraryPath = item.fullPath;
+              state.ui.backgroundLibraryCollapsed = true;
               renderQuestPreview();
               renderStage();
             });
@@ -1214,6 +1291,7 @@
           state.background.assetURL = '';
           state.background.libraryPath = null;
         }
+        state.ui.backgroundLibraryCollapsed = false;
         renderStage();
       });
 
@@ -1233,6 +1311,7 @@
         state.background.assetKey = key;
         state.background.assetURL = '';
         state.background.libraryPath = null;
+        state.ui.backgroundLibraryCollapsed = false;
         renderQuestPreview();
         renderStage();
       });
@@ -1403,11 +1482,46 @@
             libraryContainer.appendChild(emptyMessage);
             return;
           }
+          
+          const selectedItem = libraryState.items.find(item =>
+            state.charDraft.libraryPath === item.fullPath ||
+            (!state.charDraft.libraryPath && state.charDraft.assetURL === item.url)
+          );
+
+          if (selectedItem && state.ui.characterLibraryCollapsed) {
+            const preview = createElement('div', { className: 'asset-selection-preview' });
+            const image = document.createElement('img');
+            applyLibraryThumbnail(image, selectedItem);
+            const info = createElement('div', { className: 'asset-selection-preview-info' });
+            const nameLabel = createElement('strong', { textContent: selectedItem.name });
+            const pathLabel = createElement('span', {
+              className: 'asset-thumb-label',
+              textContent: selectedItem.fullPath || selectedItem.url
+            });
+            info.append(nameLabel, pathLabel);
+            preview.append(image, info);
+            libraryContainer.appendChild(preview);
+
+            const actions = createElement('div', { className: 'asset-selection-preview-actions' });
+            const changeButton = createElement('button', {
+              className: 'flat',
+              type: 'button',
+              textContent: '別の画像を選ぶ'
+            });
+            changeButton.addEventListener('click', () => {
+              state.ui.characterLibraryCollapsed = false;
+              renderStage();
+            });
+            actions.appendChild(changeButton);
+            libraryContainer.appendChild(actions);
+            return;
+          }
+
 
           const grid = createElement('div', { className: 'asset-grid' });
           libraryState.items.forEach(item => {
             const button = createElement('button', { className: 'asset-thumb', type: 'button' });
-            if (state.charDraft.libraryPath === item.fullPath || (!state.charDraft.libraryPath && state.charDraft.assetURL === item.url)) {
+            if (selectedItem && (selectedItem.fullPath === item.fullPath || (!selectedItem.fullPath && selectedItem.url === item.url))) {
               button.classList.add('selected');
             }
             const image = document.createElement('img');
@@ -1419,6 +1533,7 @@
               state.charDraft.assetURL = item.url;
               state.charDraft.libraryPath = item.fullPath;
               state.charDraft.source = 'library';
+              state.ui.characterLibraryCollapsed = true;
               renderStage();
             });
             grid.appendChild(button);
@@ -1474,6 +1589,7 @@
         } else if (state.charDraft.source === 'upload') {
           state.charDraft.libraryPath = null;
         }
+        state.ui.characterLibraryCollapsed = false;
         renderStage();
       });
 
@@ -1497,6 +1613,7 @@
       const cancelButton = createElement('button', { className: 'secondary', type: 'button', textContent: 'キャンセル' });
       cancelButton.addEventListener('click', () => {
         state.charDraft = {};
+        state.ui.characterLibraryCollapsed = false;
         setStage('menu');
       });
 
@@ -1541,6 +1658,7 @@
           };
           appendFlowOp(op);
           state.charDraft = {};
+          state.ui.characterLibraryCollapsed = false;
           setStage('menu');
         } catch (error) {
           console.error(error);
@@ -2064,14 +2182,46 @@
           libraryContainer.appendChild(emptyMessage);
           return;
         }
+        
+        const selectedItem = libraryState.items.find(item =>
+          state.cover.libraryPath === item.fullPath ||
+          (!state.cover.libraryPath && state.cover.url === item.url)
+        );
+
+        if (selectedItem && state.ui.coverLibraryCollapsed) {
+          const preview = createElement('div', { className: 'asset-selection-preview' });
+          const image = document.createElement('img');
+          applyLibraryThumbnail(image, selectedItem);
+          const info = createElement('div', { className: 'asset-selection-preview-info' });
+          const nameLabel = createElement('strong', { textContent: selectedItem.name });
+          const pathLabel = createElement('span', {
+            className: 'asset-thumb-label',
+            textContent: selectedItem.fullPath || selectedItem.url
+          });
+          info.append(nameLabel, pathLabel);
+          preview.append(image, info);
+          libraryContainer.appendChild(preview);
+
+          const actions = createElement('div', { className: 'asset-selection-preview-actions' });
+          const changeButton = createElement('button', {
+            className: 'flat',
+            type: 'button',
+            textContent: '別の画像を選ぶ'
+          });
+          changeButton.addEventListener('click', () => {
+            state.ui.coverLibraryCollapsed = false;
+            renderLibrary();
+          });
+          actions.appendChild(changeButton);
+          libraryContainer.appendChild(actions);
+          return;
+        }
+
 
         const grid = createElement('div', { className: 'asset-grid' });
         libraryState.items.forEach(item => {
           const button = createElement('button', { className: 'asset-thumb', type: 'button' });
-          if (
-            state.cover.libraryPath === item.fullPath ||
-            (!state.cover.libraryPath && state.cover.url === item.url)
-          ) {
+          if (selectedItem && (selectedItem.fullPath === item.fullPath || (!selectedItem.fullPath && selectedItem.url === item.url))) {
             button.classList.add('selected');
           }
           const image = document.createElement('img');
@@ -2082,6 +2232,7 @@
             state.cover.assetKey = null;
             state.cover.url = item.url;
             state.cover.libraryPath = item.fullPath;
+            state.ui.coverLibraryCollapsed = true;
             current.textContent = describeCover();
             renderQuestPreview();
             renderLibrary();
@@ -2128,6 +2279,7 @@
         } else if (type === 'url') {
           state.cover.libraryPath = null;
         }
+        state.ui.coverLibraryCollapsed = false;
         current.textContent = describeCover();
         updateVisibility();
       });
@@ -2136,6 +2288,7 @@
         state.cover.url = urlInput.value.trim();
         state.cover.assetKey = null;
         state.cover.libraryPath = null;
+        state.ui.coverLibraryCollapsed = false;
         current.textContent = describeCover();
         renderQuestPreview();
       });
@@ -2147,6 +2300,7 @@
         state.cover.assetKey = storeAsset(dataUrl, 'cover', file.name);
         state.cover.url = '';
         state.cover.libraryPath = null;
+        state.ui.coverLibraryCollapsed = false;
         current.textContent = describeCover();
         renderQuestPreview();
       });
@@ -3389,6 +3543,9 @@ if (firebaseConfigSaveButton) {
       state.pendingBackgroundChange = null;
       state.tempSlot = null;
       state.locationChoice = { mode: 'everywhere', name: '', detail: '' };
+      state.ui.backgroundLibraryCollapsed = false;
+      state.ui.characterLibraryCollapsed = false;
+      state.ui.coverLibraryCollapsed = false;
       latitudeInput.value = '';
       longitudeInput.value = '';
       locationModeInputs.forEach(input => { input.checked = input.value === 'everywhere'; });
