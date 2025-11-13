@@ -3276,38 +3276,56 @@
 
     async function prepareAssetForUpload(asset) {
       const image = await loadImageFromDataUrl(asset.dataUrl);
-      const maxLongSide = asset.kind === 'background' ? 1600 : asset.kind === 'cover' ? 640 : 768;
-      const maxBytes = asset.kind === 'background' ? 1_400_000 : asset.kind === 'cover' ? 240_000 : 300_000;
-      const preferPNG = asset.kind === 'character';
-      let scale = Math.min(1, maxLongSide / Math.max(image.width, image.height));
+      const config = (() => {
+        switch (asset.kind) {
+          case 'background':
+            return { maxLongSide: 1600, maxBytes: 1_000_000, preferPNG: false };
+          case 'cover':
+            return { maxLongSide: 640, maxBytes: 180_000, preferPNG: false };
+          case 'character':
+          default:
+            return { maxLongSide: 768, maxBytes: 220_000, preferPNG: true };
+        }
+      })();
+
+      let scale = Math.min(1, config.maxLongSide / Math.max(image.width, image.height));
       if (!Number.isFinite(scale) || scale <= 0) {
         scale = 1;
       }
-      let quality = preferPNG ? 1 : 0.92;
-      const mimeType = preferPNG ? 'image/png' : 'image/jpeg';
-      let blob = await renderImageToBlob(image, scale, mimeType, quality);
-      if (!blob) {
-        throw new Error('画像の変換に失敗しました。');
-      }
-      if (!preferPNG) {
-        while (blob.size > maxBytes && quality > 0.65) {
-          quality = Math.max(0.65, quality - 0.07);
-          const candidate = await renderImageToBlob(image, scale, mimeType, quality);
-          if (!candidate) break;
-          blob = candidate;
+
+      const mimeType = config.preferPNG ? 'image/png' : 'image/jpeg';
+      const qualitySteps = config.preferPNG
+        ? [1]
+        : Array.from({ length: 6 }, (_, i) => 0.82 - i * 0.08).map(q => Math.max(0.45, Math.min(0.95, q)));
+
+      let currentScale = scale;
+      let lastBlob = null;
+
+      while (currentScale > (config.preferPNG ? 0.34 : 0.4)) {
+        for (const quality of qualitySteps) {
+          const candidate = await renderImageToBlob(image, currentScale, mimeType, quality);
+          if (!candidate) continue;
+          lastBlob = candidate;
+          if (candidate.size <= config.maxBytes) {
+            return {
+              blob: candidate,
+              contentType: mimeType,
+              extension: config.preferPNG ? 'png' : 'jpg'
+            };
+          }
         }
+        currentScale *= config.preferPNG ? 0.88 : 0.85;
       }
-      while (blob.size > maxBytes && scale > 0.35) {
-        scale *= 0.88;
-        const candidate = await renderImageToBlob(image, scale, mimeType, preferPNG ? 1 : quality);
-        if (!candidate) break;
-        blob = candidate;
+
+      if (lastBlob) {
+        return {
+          blob: lastBlob,
+          contentType: mimeType,
+          extension: config.preferPNG ? 'png' : 'jpg'
+        };
       }
-      return {
-        blob,
-        contentType: mimeType,
-        extension: preferPNG ? 'png' : 'jpg'
-      };
+
+      throw new Error('画像の変換に失敗しました。');
     }
 
     function loadImageFromDataUrl(dataUrl) {
